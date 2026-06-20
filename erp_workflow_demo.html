@@ -140,8 +140,7 @@
   .chip2.key{border-color:var(--brand);background:#eff4ff;color:var(--brand-dk);font-weight:700}
   .conn{flex:0 0 auto;color:#94a3b8;padding:0 5px;font-size:13px}
   /* data-flow diagrams (NLD / On Net / Off Net) */
-  .dwrap{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:start}
-  @media(max-width:900px){.dwrap{grid-template-columns:1fr;max-width:560px}}
+  .dwrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;align-items:start}
   .dcol h4{margin:0 0 10px;font-size:13.5px}
   .dstep{border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:#fff;box-shadow:var(--sh)}
   .dstep.key{border-color:var(--brand);background:#eff4ff}
@@ -1595,13 +1594,32 @@ function renderWorkflow(){
     {t:'Stage 4 — Distances (Chamber only)',s:'A↔Vendor-A · B↔Vendor-B chamber distances → push to Active NLD/Backhaul',e:''},
     {t:'Stage 5 — Acceptance',s:'Acceptance date · remarks',e:''}
   ];
+  const popSteps=[
+    {t:'Stage 1 — Job ID details',s:'Nearby POP (20 km) · Proceed / Reject · Backhaul type',e:'proceed',key:1,branch:'Backhaul → NLD (now) · On/Off-Net (after Stage 3)'},
+    {t:'Stage 2 — Feasibility & site survey',s:'Infra Provider / Own · site-survey check',e:'survey task'},
+    {t:'Juggle — Stage 1',s:'BM / FE on-site survey (Infra vs Own fields)',e:'survey done'},
+    {t:'Stage 3 — POP Code generation',s:'Generate POP-YYYY-seq5',e:'POP code',key:1,branch:'unlocks On Net & Off Net P2P'},
+    {t:'Stage 4 — PO / Agreement',s:'Infra PO / Own agreement · approve/revalidate installs',e:''},
+    {t:'Stage 5 — Technician / Mounting / Power',s:'Reference/Rack/UBR · technician · power load',e:'New Activation Pending'},
+    {t:'Stage 6 — Agreement (Own only)',s:'Agreement attachment + date',e:''},
+    {t:'Stage 7 — Material Request',s:'hands off to PR pipeline',e:'PR'},
+    {t:'PR Stage 1 — Rack & Power Feed',s:'NetBox rack + power feed',e:''},
+    {t:'PR Stage 2 — Active device',s:'Device + port mapping (per backhaul case)',e:''},
+    {t:'PR Stage 3 — Cables',s:'A/B side · cable details (NetBox)',e:''},
+    {t:'Last Mile Deployment 1 (On Net)',s:'Wireless device / IP / VLAN / engineer',e:'task'},
+    {t:'Task module (Juggle)',s:'FE on-site checklist · per link type',e:'BM → Infra → PR'},
+    {t:'Last Mile Deployment 2 (On Net)',s:'Wireless link validation snapshots',e:''},
+    {t:'PR Stage 4 — Provisioning',s:'Capture + 3-day observation',e:'observation'},
+    {t:'Stage 6 — Acceptance',s:'POP acceptance → Active tab',e:''}
+  ];
   const diagrams=`<div class="dwrap">
+    <div class="dcol"><h4>📡 POP Feasibility — data flow</h4>${dataFlow(popSteps)}</div>
     <div class="dcol"><h4>🛰️ NLD / Backhaul — data flow</h4>${dataFlow(nldSteps)}</div>
     <div class="dcol"><h4>🔗 On Net Backhaul — data flow</h4>${dataFlow(onnetSteps)}</div>
     <div class="dcol"><h4>🔀 Off Net (POP↔POP) — data flow</h4>${dataFlow(offSteps)}</div>
   </div>`;
 
-  let html='<p class="muted" style="margin:0 0 14px">Stage-wise data flow for the three backhaul types. Each box is a stage; the connector line shows what data flows to the next stage; <span style="color:#b45309">orange ⤳</span> notes a conditional side-output. Full per-module stage details below.</p>'+diagrams;
+  let html='<p class="muted" style="margin:0 0 14px">Stage-wise data flow for the POP Feasibility hub and the three backhaul types. Each box is a stage; the connector line shows what data flows to the next stage; <span style="color:#b45309">orange ⤳</span> notes a conditional side-output. Full per-module stage details below.</p>'+diagrams;
   html+='<h3 style="margin:24px 0 10px;font-size:15px">All modules — stage details</h3>';
   order.forEach((mod,mi)=>{
     const M=MODULES[mod];

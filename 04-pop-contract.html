@@ -1,0 +1,1389 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>POP Contract · Optimal OSS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ===== shared design system (inlined) ===== */
+      /* ============================================================
+   Optimal Telecom — Provisioning Flow
+   Shared design system
+   Headings: Bricolage Grotesque · Body: IBM Plex Sans · Code: IBM Plex Mono
+   Palette: navy + amber
+   ============================================================ */
+
+      :root {
+        --navy-900: #0a1e30;
+        --navy-800: #0f2a43;
+        --navy-700: #163a59;
+        --navy-600: #1f4d72;
+        --bg: #eef2f5;
+        --surface: #ffffff;
+        --surface-2: #f7f9fb;
+        --line: #d9e1e8;
+        --line-strong: #c2cdd7;
+        --ink: #13212e;
+        --muted: #5c6b7a;
+        --muted-2: #8696a4;
+        --amber: #e7a02e;
+        --amber-strong: #cf8412;
+        --amber-soft: #fbeccd;
+        --green: #1f7a52;
+        --green-soft: #dcefe5;
+        --red: #bd3b2c;
+        --red-soft: #f6dfdb;
+        --blue: #2f6dae;
+        --blue-soft: #dfeaf6;
+        --radius: 14px;
+        --radius-sm: 9px;
+        --shadow:
+          0 1px 2px rgba(15, 42, 67, 0.06), 0 8px 24px rgba(15, 42, 67, 0.07);
+        --shadow-lg: 0 24px 60px rgba(10, 30, 48, 0.18);
+        --maxw: 1180px;
+        --rail: 230px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          "IBM Plex Sans",
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+        font-size: 15px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      h1,
+      h2,
+      h3,
+      h4 {
+        font-family: "Bricolage Grotesque", "IBM Plex Sans", sans-serif;
+        font-weight: 700;
+        line-height: 1.08;
+        letter-spacing: -0.01em;
+        margin: 0;
+      }
+      .mono {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+      }
+      a {
+        color: inherit;
+      }
+
+      /* ---------- Top bar ---------- */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        background: var(--navy-900);
+        color: #eaf1f7;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .topbar-inner {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 0 24px;
+        height: 58px;
+        display: flex;
+        align-items: center;
+        gap: 22px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        text-decoration: none;
+        color: #fff;
+        white-space: nowrap;
+      }
+      .brand .glyph {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background: linear-gradient(150deg, var(--amber), var(--amber-strong));
+        display: grid;
+        place-items: center;
+        color: var(--navy-900);
+        font-weight: 800;
+        font-size: 14px;
+        font-family: "Bricolage Grotesque", sans-serif;
+        box-shadow: 0 0 0 3px rgba(231, 160, 46, 0.18);
+      }
+      .brand b {
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-size: 16px;
+        letter-spacing: -0.01em;
+      }
+      .brand span {
+        color: var(--amber);
+        font-weight: 600;
+      }
+      .topnav {
+        display: flex;
+        gap: 2px;
+        flex-wrap: wrap;
+        margin-left: 6px;
+      }
+      .topnav a {
+        text-decoration: none;
+        color: #aebecb;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 7px 11px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        transition:
+          background 0.15s,
+          color 0.15s;
+      }
+      .topnav a .n {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        color: var(--amber);
+        font-weight: 600;
+      }
+      .topnav a:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: #fff;
+      }
+      .topnav a.active {
+        background: rgba(231, 160, 46, 0.16);
+        color: #fff;
+      }
+      .topnav a.active .n {
+        color: var(--amber);
+      }
+
+      /* ---------- Layout shell ---------- */
+      .wrap {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 30px 24px 90px;
+      }
+      .page-head {
+        margin-bottom: 26px;
+      }
+      .eyebrow {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11.5px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--amber-strong);
+        font-weight: 600;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .eyebrow::before {
+        content: "";
+        width: 22px;
+        height: 2px;
+        background: var(--amber);
+      }
+      .page-head h1 {
+        font-size: clamp(26px, 4vw, 38px);
+        color: var(--navy-900);
+      }
+      .page-head p.lede {
+        color: var(--muted);
+        max-width: 62ch;
+        margin: 11px 0 0;
+        font-size: 15.5px;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: var(--rail) 1fr;
+        gap: 30px;
+        align-items: start;
+      }
+      @media (max-width: 880px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ---------- Stage rail ---------- */
+      .rail {
+        position: sticky;
+        top: 80px;
+      }
+      .rail h4 {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted-2);
+        margin-bottom: 14px;
+        font-family: "IBM Plex Mono", monospace;
+        font-weight: 600;
+      }
+      .rail ol {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        position: relative;
+      }
+      .rail ol::before {
+        content: "";
+        position: absolute;
+        left: 14px;
+        top: 6px;
+        bottom: 18px;
+        width: 2px;
+        background: var(--line-strong);
+      }
+      .rail li {
+        position: relative;
+        padding: 0 0 4px 40px;
+        margin-bottom: 14px;
+      }
+      .rail li .dot {
+        position: absolute;
+        left: 5px;
+        top: 1px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--surface);
+        border: 2px solid var(--line-strong);
+        display: grid;
+        place-items: center;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .rail li a {
+        text-decoration: none;
+        color: var(--ink);
+        font-weight: 500;
+        font-size: 13.5px;
+        display: block;
+      }
+      .rail li small {
+        display: block;
+        color: var(--muted-2);
+        font-size: 11.5px;
+        margin-top: 1px;
+      }
+      .rail li.is-active .dot {
+        background: var(--amber);
+        border-color: var(--amber);
+        color: var(--navy-900);
+      }
+      .rail li.is-active a {
+        color: var(--navy-900);
+        font-weight: 700;
+      }
+      .rail li:hover a {
+        color: var(--amber-strong);
+      }
+
+      /* ---------- Cards / panels ---------- */
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        scroll-margin-top: 80px;
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface-2);
+      }
+      .card-head .stagebadge {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        font-weight: 600;
+        background: var(--navy-900);
+        color: #fff;
+        padding: 4px 9px;
+        border-radius: 6px;
+        white-space: nowrap;
+      }
+      .card-head h3 {
+        font-size: 17px;
+        color: var(--navy-900);
+      }
+      .card-head .sub {
+        color: var(--muted);
+        font-size: 13px;
+        margin-left: auto;
+        text-align: right;
+      }
+      .card-body {
+        padding: 20px;
+      }
+      .card-note {
+        margin: 0;
+        padding: 11px 20px;
+        background: var(--amber-soft);
+        border-top: 1px solid #f0dcb0;
+        font-size: 13px;
+        color: #6b5012;
+      }
+      .card-note b {
+        color: #4d3a0a;
+      }
+
+      /* ---------- Forms ---------- */
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+      .g2 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .g3 {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      @media (max-width: 680px) {
+        .g2,
+        .g3 {
+          grid-template-columns: 1fr;
+        }
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+      }
+      .field > label {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--navy-800);
+        letter-spacing: 0.01em;
+      }
+      .field .hint {
+        font-size: 11.5px;
+        color: var(--muted-2);
+        font-weight: 400;
+      }
+      .req {
+        color: var(--red);
+        font-weight: 700;
+      }
+      input[type="text"],
+      input[type="number"],
+      input[type="date"],
+      input[type="tel"],
+      select,
+      textarea {
+        font-family: inherit;
+        font-size: 14px;
+        color: var(--ink);
+        background: var(--surface);
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-sm);
+        padding: 9px 11px;
+        width: 100%;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+      }
+      textarea {
+        resize: vertical;
+        min-height: 70px;
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--amber);
+        box-shadow: 0 0 0 3px rgba(231, 160, 46, 0.18);
+      }
+      select {
+        appearance: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%235c6b7a' stroke-width='1.6'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 11px center;
+        padding-right: 30px;
+      }
+      .fetch {
+        background: var(--surface-2);
+        color: var(--muted);
+        font-style: italic;
+        border-style: dashed;
+      }
+
+      /* radio / checkbox segmented */
+      .seg {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .seg label {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        cursor: pointer;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        padding: 7px 13px;
+        font-size: 13px;
+        font-weight: 500;
+        background: var(--surface);
+        transition: 0.15s;
+      }
+      .seg input {
+        accent-color: var(--amber-strong);
+        margin: 0;
+      }
+      .seg label:hover {
+        border-color: var(--amber);
+      }
+      .seg input:checked + span {
+        color: var(--navy-900);
+        font-weight: 600;
+      }
+      .seg label:has(input:checked) {
+        border-color: var(--amber);
+        background: var(--amber-soft);
+      }
+      .checks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 18px;
+      }
+      .checks label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13.5px;
+        cursor: pointer;
+      }
+      .checks input {
+        accent-color: var(--amber-strong);
+        width: 16px;
+        height: 16px;
+      }
+
+      /* repeat / add-more */
+      .repeat {
+        border: 1px dashed var(--line-strong);
+        border-radius: var(--radius-sm);
+        padding: 14px;
+        background: var(--surface-2);
+      }
+      .repeat .row {
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+      }
+      .add {
+        margin-top: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        cursor: pointer;
+        background: transparent;
+        border: 1px dashed var(--amber);
+        color: var(--amber-strong);
+        border-radius: 8px;
+        padding: 7px 13px;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .add:hover {
+        background: var(--amber-soft);
+      }
+      .add .plus {
+        font-family: "IBM Plex Mono", monospace;
+      }
+
+      /* ---------- Buttons ---------- */
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-top: 4px;
+      }
+      .btn {
+        font: inherit;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        text-decoration: none;
+        border-radius: var(--radius-sm);
+        padding: 10px 18px;
+        border: 1px solid transparent;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: 0.15s;
+      }
+      .btn-primary {
+        background: var(--navy-900);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        background: var(--navy-700);
+      }
+      .btn-amber {
+        background: linear-gradient(150deg, var(--amber), var(--amber-strong));
+        color: var(--navy-900);
+      }
+      .btn-amber:hover {
+        filter: brightness(1.04);
+      }
+      .btn-ghost {
+        background: var(--surface);
+        border-color: var(--line-strong);
+        color: var(--navy-800);
+      }
+      .btn-ghost:hover {
+        border-color: var(--navy-700);
+      }
+      .btn-danger {
+        background: var(--surface);
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .btn-danger:hover {
+        background: var(--red-soft);
+      }
+      .btn .arrow {
+        font-family: "IBM Plex Mono", monospace;
+      }
+
+      /* ---------- Tables ---------- */
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 13.5px;
+        min-width: 560px;
+      }
+      thead th {
+        background: var(--navy-900);
+        color: #dbe6ef;
+        text-align: left;
+        font-weight: 600;
+        padding: 11px 13px;
+        font-size: 11.5px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      tbody td {
+        padding: 11px 13px;
+        border-top: 1px solid var(--line);
+      }
+      tbody tr:nth-child(even) {
+        background: var(--surface-2);
+      }
+      tbody tr:hover {
+        background: var(--amber-soft);
+      }
+      td .mono,
+      th .mono {
+        font-size: 12.5px;
+      }
+
+      /* ---------- Tags / pills ---------- */
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11.5px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 999px;
+        letter-spacing: 0.02em;
+      }
+      .tag::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.9;
+      }
+      .tag.feasible {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .tag.not {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+      .tag.await {
+        background: var(--amber-soft);
+        color: var(--amber-strong);
+      }
+      .tag.planned {
+        background: var(--blue-soft);
+        color: var(--blue);
+      }
+      .tag.active {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .tag.pending {
+        background: #ece9f5;
+        color: #6a51b8;
+      }
+
+      /* ---------- Conditional reveal ---------- */
+      [data-when] {
+        display: none;
+      }
+      [data-when].show {
+        display: block;
+      }
+      [data-when].show.grid {
+        display: grid;
+      }
+      [data-when].show.seg {
+        display: flex;
+      }
+      [data-when].show.inline-flex {
+        display: inline-flex;
+      }
+      .subblock {
+        border-left: 3px solid var(--amber);
+        background: var(--surface-2);
+        padding: 16px;
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        margin-top: 4px;
+      }
+      .subblock + .subblock {
+        margin-top: 14px;
+      }
+      .subblock > .lab {
+        font-size: 12px;
+        font-family: "IBM Plex Mono", monospace;
+        color: var(--amber-strong);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 600;
+        margin-bottom: 12px;
+        display: block;
+      }
+
+      /* ---------- Handoff banners ---------- */
+      .handoff {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        border-radius: var(--radius);
+        padding: 15px 18px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+      .handoff .ic {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        flex: none;
+        display: grid;
+        place-items: center;
+        background: var(--navy-900);
+        color: var(--amber);
+        font-family: "IBM Plex Mono", monospace;
+        font-weight: 700;
+      }
+      .handoff .txt {
+        flex: 1;
+        min-width: 0;
+      }
+      .handoff .txt b {
+        display: block;
+        font-size: 14px;
+        color: var(--navy-900);
+      }
+      .handoff .txt span {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .handoff.to-nld {
+        border-left: 4px solid var(--blue);
+      }
+      .handoff.to-contract {
+        border-left: 4px solid var(--amber);
+      }
+      .handoff.reject {
+        border-left: 4px solid var(--red);
+      }
+      .handoff.to-active {
+        border-left: 4px solid var(--green);
+      }
+
+      /* ---------- Info note / callout ---------- */
+      .callout {
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--navy-700);
+        background: var(--surface-2);
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        padding: 13px 16px;
+        font-size: 13.5px;
+        color: var(--muted);
+      }
+      .callout b {
+        color: var(--navy-900);
+      }
+      .warn {
+        border-left-color: var(--amber);
+        background: var(--amber-soft);
+        color: #6b5012;
+      }
+      .warn b {
+        color: #4d3a0a;
+      }
+
+      /* ---------- Divider ---------- */
+      .div {
+        height: 1px;
+        background: var(--line);
+        margin: 4px 0;
+      }
+
+      /* ---------- footer ---------- */
+      .foot {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 24px;
+        color: var(--muted-2);
+        font-size: 12.5px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .foot .mono {
+        font-size: 11.5px;
+      }
+
+      /* reduced motion */
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+    <style>
+      .codechip {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        background: var(--navy-900);
+        color: #fff;
+        border-radius: 10px;
+        padding: 11px 15px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .codechip small {
+        font-family: "IBM Plex Sans", sans-serif;
+        font-weight: 500;
+        font-size: 11px;
+        color: var(--amber);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .existing {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+      }
+      .existing div {
+        background: var(--surface-2);
+        padding: 11px 13px;
+      }
+      .existing div small {
+        display: block;
+        font-size: 11px;
+        color: var(--muted-2);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 3px;
+      }
+      .existing div b {
+        font-size: 14px;
+        color: var(--navy-900);
+        font-family: "IBM Plex Mono", monospace;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="index.html"
+          ><span class="glyph">O</span><b>Optimal<span>OSS</span></b></a
+        >
+        <nav class="topnav">
+          <a href="index.html"><span class="n">00</span> Flow</a>
+          <a href="01-job-id-list.html"
+            ><span class="n">01</span> Job ID List</a
+          >
+          <a href="02-pop-feasibility.html"
+            ><span class="n">02</span> POP Feasibility</a
+          >
+          <a href="03-nld-backhaul.html"
+            ><span class="n">03</span> NLD / Backhaul</a
+          >
+          <a class="active" href="04-pop-contract.html"
+            ><span class="n">04</span> POP Contract</a
+          >
+          <a href="05-active-pop.html"><span class="n">05</span> Active POP</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="page-head">
+        <div class="eyebrow">Step 04 · Commercial</div>
+        <h1>POP Contract</h1>
+        <p class="lede">
+          Sub-contracts hang off a master POP Code. Add a new contract, extend
+          an existing one, or renew an agreement — each carries a
+          <b>Line ID</b> and generates a PO in ZOHO Books.
+        </p>
+      </div>
+
+      <div class="layout">
+        <aside class="rail">
+          <h4>On this page</h4>
+          <ol>
+            <li class="is-active" data-target="list">
+              <span class="dot">L</span><a href="#list">Contracts</a>
+            </li>
+            <li data-target="new">
+              <span class="dot">+</span><a href="#new">Add new contract</a>
+            </li>
+          </ol>
+        </aside>
+
+        <div class="stack">
+          <!-- LIST -->
+          <section class="card" id="list">
+            <div class="card-head">
+              <span class="stagebadge">LIST</span>
+              <h3>Contracts</h3>
+              <a
+                class="btn btn-amber"
+                href="#new"
+                style="margin-left: auto; padding: 8px 14px; font-size: 13px"
+                >+ Add new contract</a
+              >
+            </div>
+            <div class="card-body">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Line ID</th>
+                      <th>POP code</th>
+                      <th>POP name</th>
+                      <th>Type</th>
+                      <th>City</th>
+                      <th>State</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="mono">POP-2026-00118-GTPL-RCK-9U</td>
+                      <td class="mono">POP-2026-00118</td>
+                      <td>Optimal SG-Hwy</td>
+                      <td>Infra Provider</td>
+                      <td>Ahmedabad</td>
+                      <td>Gujarat</td>
+                      <td><span class="tag active">Active</span></td>
+                    </tr>
+
+                    <tr>
+                      <td class="mono">POP-2026-00061-OWN-RCK-12U</td>
+                      <td class="mono">POP-2026-00061</td>
+                      <td>Optimal Maninagar</td>
+                      <td>Own</td>
+                      <td>Ahmedabad</td>
+                      <td>Gujarat</td>
+                      <td><span class="tag pending">Renewal due</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- ADD NEW -->
+          <section class="card" id="new">
+            <div class="card-head">
+              <span class="stagebadge">NEW</span>
+              <h3>Add new contract</h3>
+            </div>
+            <div class="card-body stack">
+              <div class="field" style="max-width: 420px">
+                <label>POP selection</label>
+                <select name="popsel">
+                  <option value="">POP name + code…</option>
+                  <option value="p118">Optimal SG-Hwy · POP-2026-00118</option>
+                  <option value="p097">
+                    Optimal Ahmedabad · POP-2026-00097
+                  </option>
+                  <option value="p061">
+                    Optimal Maninagar · POP-2026-00061
+                  </option>
+                </select>
+              </div>
+
+              <div class="field" data-when="popsel=p118|p097|p061">
+                <label>What do you want to do?</label>
+                <div class="seg">
+                  <label
+                    ><input type="radio" name="cmode" value="addon" /><span
+                      >Add-on to contract</span
+                    ></label
+                  >
+                  <label
+                    ><input type="radio" name="cmode" value="new" /><span
+                      >New contract</span
+                    ></label
+                  >
+                  <label
+                    ><input type="radio" name="cmode" value="renew" /><span
+                      >Agreement renew</span
+                    ></label
+                  >
+                </div>
+              </div>
+
+              <!-- ADD ON -->
+              <div class="subblock" data-when="cmode=addon">
+                <span class="lab">Add-on to existing contract</span>
+                <div class="existing" style="margin-bottom: 16px">
+                  <div><small>Existing U space</small><b>9U</b></div>
+                  <div><small>Radio mount</small><b>2</b></div>
+                  <div><small>Monthly payment</small><b>₹ 18,000</b></div>
+                  <div><small>Billing start</small><b>2025-04-01</b></div>
+                  <div><small>Next due</small><b>2026-07-01</b></div>
+                </div>
+                <div class="grid g3">
+                  <div class="field">
+                    <label>Add U space</label>
+                    <div class="repeat" style="padding: 10px">
+                      <input type="number" placeholder="+ U" /><button
+                        class="add"
+                        type="button"
+                        data-flash="U space row added."
+                      >
+                        <span class="plus">+</span> more
+                      </button>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>Radio mount permission</label>
+                    <div class="repeat" style="padding: 10px">
+                      <input type="number" placeholder="+" /><button
+                        class="add"
+                        type="button"
+                        data-flash="Mount row added."
+                      >
+                        <span class="plus">+</span> more
+                      </button>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>Billing start date</label><input type="date" />
+                  </div>
+                  <div class="field">
+                    <label>Billing cycle</label
+                    ><select>
+                      <option>Monthly</option>
+                      <option>Quarterly</option>
+                      <option>Annual</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>ARC</label><input type="text" placeholder="₹" />
+                  </div>
+                  <div class="field">
+                    <label>OTC</label><input type="text" placeholder="₹" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- NEW -->
+              <div class="subblock" data-when="cmode=new">
+                <span class="lab">New contract</span>
+                <div class="field" style="margin-bottom: 14px">
+                  <label>Contract type</label>
+                  <div class="seg">
+                    <label
+                      ><input type="radio" name="ctype" value="infra" /><span
+                        >Infra Provider</span
+                      ></label
+                    >
+                  </div>
+                </div>
+                <div
+                  class="field"
+                  data-when="ctype=infra"
+                  style="margin-bottom: 14px"
+                >
+                  <label>Infra provider</label
+                  ><select>
+                    <option>Select infra vendor…</option>
+                    <option>GTPL Infra</option>
+                    <option>Sterlite</option>
+                    <option>Railtel</option>
+                  </select>
+                </div>
+                <div
+                  class="grid g2"
+                  data-when="ctype=tm"
+                  style="margin-bottom: 14px"
+                ></div>
+                <div class="grid g3">
+                  <div class="field">
+                    <label>U space</label>
+                    <div class="repeat" style="padding: 10px">
+                      <input type="number" placeholder="U" /><button
+                        class="add"
+                        type="button"
+                        data-flash="U space row added."
+                      >
+                        <span class="plus">+</span> more
+                      </button>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>Radio mount permission</label>
+                    <div class="repeat" style="padding: 10px">
+                      <input type="number" placeholder="" /><button
+                        class="add"
+                        type="button"
+                        data-flash="Mount row added."
+                      >
+                        <span class="plus">+</span> more
+                      </button>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>Billing start date</label><input type="date" />
+                  </div>
+                  <div class="field">
+                    <label>Billing cycle</label
+                    ><select>
+                      <option>Monthly</option>
+                      <option>Quarterly</option>
+                      <option>Annual</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>ARC</label><input type="text" placeholder="₹" />
+                  </div>
+                  <div class="field">
+                    <label>OTC</label><input type="text" placeholder="₹" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- RENEW -->
+              <div class="subblock" data-when="cmode=renew">
+                <span class="lab">Agreement renew</span>
+                <div class="existing" style="margin-bottom: 16px">
+                  <div><small>Pole mounting</small><b>Yes</b></div>
+                  <div><small>Monthly payment</small><b>₹ 9,500</b></div>
+                  <div><small>Billing start</small><b>2024-03-01</b></div>
+                  <div><small>Last agreement</small><b>2024-03-01</b></div>
+                  <div><small>Next due</small><b>2026-03-01</b></div>
+                </div>
+                <div class="grid g3">
+                  <div class="field">
+                    <label>Billing start date</label><input type="date" />
+                  </div>
+                  <div class="field">
+                    <label>Renew agreement date</label><input type="date" />
+                  </div>
+                  <div class="field">
+                    <label
+                      >Attachments <span class="hint">(multiple)</span></label
+                    ><input type="text" placeholder="Upload…" />
+                  </div>
+                  <div class="field">
+                    <label>Billing cycle</label
+                    ><select>
+                      <option>Monthly</option>
+                      <option>Quarterly</option>
+                      <option>Annual</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>ARC</label><input type="text" placeholder="₹" />
+                  </div>
+                  <div class="field">
+                    <label>OTC</label><input type="text" placeholder="₹" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- submit / handoff -->
+              <div class="handoff to-active" data-when="cmode=addon|new|renew">
+                <div class="ic">PO</div>
+                <div class="txt">
+                  <b>Submit → PO generates in ZOHO Books</b
+                  ><span
+                    >The contract is written against the POP Code and stored in
+                    Active POP.</span
+                  >
+                </div>
+                <a
+                  class="btn btn-amber"
+                  href="05-active-pop.html"
+                  data-flash="Contract submitted — PO generated in ZOHO Books."
+                  >Submit contract →</a
+                >
+              </div>
+              <div class="callout" data-when="popsel=">
+                <b>Select a POP</b> to choose add-on, new, or renew.
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <footer class="foot">
+      <span>Optimal Telecom · POP Contract</span
+      ><span class="mono">04 / 05</span>
+    </footer>
+    <script>
+      /* ============================================================
+   Optimal Telecom — Provisioning Flow
+   Shared front-end behaviour (no persistence, demo only)
+   ============================================================ */
+
+      /* ---- Collect current values of every named control --------- */
+      function fieldValues(scope) {
+        scope = scope || document;
+        const vals = {};
+        scope.querySelectorAll("input,select,textarea").forEach((el) => {
+          if (!el.name) return;
+          if (el.type === "radio") {
+            if (el.checked) vals[el.name] = el.value;
+          } else if (el.type === "checkbox") {
+            (vals[el.name] = vals[el.name] || []).push(
+              el.checked ? el.value : "",
+            );
+          } else vals[el.name] = el.value;
+        });
+        return vals;
+      }
+
+      /* ---- Conditional reveal -------------------------------------
+   data-when="name=value" (or "name=v1|v2"; ";"-join = AND).
+   Shows only when control `name` currently holds a match. ---- */
+      function evalConditions(scope) {
+        scope = scope || document;
+        const vals = fieldValues(scope);
+        scope.querySelectorAll("[data-when]").forEach((node) => {
+          const ok = node
+            .getAttribute("data-when")
+            .split(";")
+            .every((rule) => {
+              const [name, raw] = rule.split("=");
+              const want = (raw || "").split("|");
+              const have = vals[name.trim()];
+              if (Array.isArray(have))
+                return want.some((w) => have.includes(w));
+              return want.includes((have || "").trim());
+            });
+          node.classList.toggle("show", ok);
+        });
+      }
+
+      /* ---- Live derived fields ------------------------------------
+   data-derive="POP-2026-00118-{provider}-RCK-{racku}U"
+   {name}        -> current value of control `name`
+   {name:a=X,b=Y}-> value mapped through a lookup table
+   Writes to .value on form controls, else to textContent.
+   Empty inputs render as a discreet placeholder. ----------- */
+      function applyMap(val, mapStr) {
+        const table = {};
+        mapStr.split(",").forEach((pair) => {
+          const [k, v] = pair.split("=");
+          table[(k || "").trim()] = (v || "").trim();
+        });
+        return table[val] != null ? table[val] : val;
+      }
+      function renderDerived(scope) {
+        scope = scope || document;
+        const vals = fieldValues();
+        scope.querySelectorAll("[data-derive]").forEach((node) => {
+          const tpl = node.getAttribute("data-derive");
+          let anyFilled = false;
+          const out = tpl.replace(/\{(\w+)(?::([^}]+))?\}/g, (_, name, map) => {
+            let v = vals[name];
+            if (Array.isArray(v)) v = v.filter(Boolean).join("+");
+            v = (v == null ? "" : String(v)).trim();
+            if (v !== "") anyFilled = true;
+            if (map && v !== "") v = applyMap(v, map);
+            return v !== "" ? v : "…";
+          });
+          if (node.matches("input,textarea,select")) {
+            const val = anyFilled ? out : ""; // leave blank so placeholder shows
+            if (node.value !== val) node.value = val;
+          } else {
+            node.textContent = out;
+          }
+        });
+      }
+
+      /* ---- Add-more repeatable rows ------------------------------- */
+      function wireRepeats() {
+        document.querySelectorAll("[data-add]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const tmpl = document.querySelector(btn.getAttribute("data-add"));
+            const clone = tmpl.content.firstElementChild.cloneNode(true);
+            const rm = clone.querySelector("[data-remove]");
+            if (rm)
+              rm.addEventListener("click", () => {
+                clone.remove();
+                evalConditions();
+                renderDerived();
+              });
+            tmpl.parentElement.insertBefore(clone, btn);
+            evalConditions();
+            renderDerived();
+          });
+        });
+      }
+
+      /* ---- Scroll-spy for the stage rail -------------------------- */
+      function wireRail() {
+        const links = [...document.querySelectorAll(".rail li[data-target]")];
+        if (!links.length) return;
+        const map = new Map();
+        links.forEach((li) => {
+          const t = document.getElementById(li.dataset.target);
+          if (t) map.set(t, li);
+        });
+        const obs = new IntersectionObserver(
+          (ents) => {
+            ents.forEach((e) => {
+              if (e.isIntersecting) {
+                links.forEach((l) => l.classList.remove("is-active"));
+                map.get(e.target)?.classList.add("is-active");
+              }
+            });
+          },
+          { rootMargin: "-30% 0px -60% 0px" },
+        );
+        map.forEach((_li, sec) => obs.observe(sec));
+      }
+
+      /* ---- Demo submit / handoff feedback ------------------------- */
+      function flash(msg) {
+        let t = document.getElementById("toast");
+        if (!t) {
+          t = document.createElement("div");
+          t.id = "toast";
+          Object.assign(t.style, {
+            position: "fixed",
+            left: "50%",
+            bottom: "26px",
+            transform: "translateX(-50%)",
+            background: "#0A1E30",
+            color: "#fff",
+            padding: "12px 20px",
+            borderRadius: "10px",
+            font: '600 14px "IBM Plex Sans",sans-serif',
+            boxShadow: "0 12px 40px rgba(10,30,48,.3)",
+            zIndex: 999,
+            maxWidth: "90vw",
+            textAlign: "center",
+            opacity: "0",
+            transition: "opacity .2s",
+          });
+          document.body.appendChild(t);
+        }
+        t.textContent = msg;
+        requestAnimationFrame(() => (t.style.opacity = "1"));
+        clearTimeout(t._h);
+        t._h = setTimeout(() => {
+          t.style.opacity = "0";
+        }, 2600);
+      }
+      function wireDemo() {
+        document.querySelectorAll("[data-flash]").forEach((b) => {
+          b.addEventListener("click", (e) => {
+            if (
+              b.tagName === "A" &&
+              b.getAttribute("href") &&
+              b.getAttribute("href") !== "#"
+            )
+              return;
+            e.preventDefault();
+            flash(b.getAttribute("data-flash"));
+          });
+        });
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const refresh = () => {
+          evalConditions();
+          renderDerived();
+        };
+        document.addEventListener("change", refresh);
+        document.addEventListener("input", (e) => {
+          if (e.target.matches("select,input,textarea")) refresh();
+        });
+        refresh();
+        wireRepeats();
+        wireRail();
+        wireDemo();
+      });
+    </script>
+  </body>
+</html>
