@@ -249,8 +249,8 @@ function setReqStatus(mod,type,status){
    GAP REGISTRY  (best-guess assumptions are annotated inline by id)
    ============================================================================ */
 const GAPS = {
-  G1:{t:'Sim Card flow not defined',where:'Job ID List → Off Net → Sim Card',
-      a:'Assumed: routes to the Off Net (End Customer) module like Broadband, using the Tunnel DC. No Sim Card-specific form provided.'},
+  G1:{t:'Sim Card flow — RESOLVED',where:'Off Net (End Customer) → Sim Card',
+      a:'Resolved: the Off Net Feasibility module now defines the full Sim Card flow (Parent Node, carrier, payment, sim type → Material Requisition → LMD/Task → PR → UAT).'},
   G2:{t:'Dark Fiber Feasibility module missing',where:'Job ID List → On Net → Wireline → Ring → Dark Fiber Ring',
       a:'Assumed: "Generate Dark Fiber Feasibility" creates a placeholder request; module not specified in any PDF.'},
   G3:{t:'Direct Handoff path under-specified',where:'Off Net (End Customer & P2P) → Direct Handoff',
@@ -263,8 +263,8 @@ const GAPS = {
       a:'Renumbered logically in this demo. Confirm canonical numbering.'},
   G7:{t:'Ambiguous "NLD Go-Live" gate',where:'POP Feasibility → Task module (NLD)',
       a:'Assumed the gate = NLD "Go Live received from Telco" (now Stage 6). Task is blocked until then.'},
-  G8:{t:'Job ID "Tunnel DC + Submit" vs full Off Net flow overlap',where:'Job ID Off Net Broadband/Sim Card',
-      a:'Assumed the quick submit seeds the Off Net (End Customer) module which then runs vendor collection etc.'},
+  G8:{t:'Broadband flow / Job ID overlap — RESOLVED',where:'Off Net (End Customer) → Broadband',
+      a:'Resolved: the Off Net Feasibility module defines the full Broadband flow (vendors → selection → Material Requisition → service credentials → LMD/Task → PR → UAT). Job ID Off Net seeds it.'},
   G9:{t:'No role / permission model',where:'All modules (BM, FE, Infra, Telco Coord, PR, Invoice)',
       a:'Handoffs are shown as status changes only; no auth/role gating implemented.'},
   G10:{t:'L2POI form only partially specified',where:'NLD / On Net Stage 2 (New L2/L1)',
@@ -437,8 +437,8 @@ jobid:{ title:'Job ID List', sub:'Entry decision tree — drives the whole workf
         F.push({type:'radio',key:'offType',label:'Type',options:['Broadband','Sim Card','Dark Fiber']});
         if(v.offType==='Broadband'||v.offType==='Sim Card'){
           F.push({type:'select',key:'tunnelDC',label:'Tunnel DC',hint:'(Dropdown of DC with Code)',options:['DC-AMD-01','DC-MUM-02','DC-DEL-03']});
-          if(v.offType==='Sim Card') F.push({type:'info',label:'⚠ Sim Card has no dedicated module in the PDFs — assumed to seed the Off Net (End Customer) flow.',colspan:true,gap:'G1'});
-          else F.push({type:'info',label:'On submit → seeds Off Net (End Customer) Broadband flow.',colspan:true,gap:'G8'});
+          if(v.offType==='Sim Card') F.push({type:'info',label:'On submit → seeds the Off Net (End Customer) Sim Card flow.',colspan:true});
+          else F.push({type:'info',label:'On submit → seeds the Off Net (End Customer) Broadband flow.',colspan:true});
         }
         if(v.offType==='Dark Fiber'){
           F.push({type:'radio',key:'dfType',label:'Type',options:['Ring','Linear']});
@@ -1082,11 +1082,11 @@ onnet:{ title:'On Net Backhaul', sub:'Initiates after POP Stage 3 (POP code)', i
 },
 
 /* ---------------- 5. OFF NET (END CUSTOMER) ---------------- */
-offcust:{ title:'Off Net — End Customer', sub:'From Job ID Off Net (Dark Fiber / Broadband)', icon:'🌐',
+offcust:{ title:'Off Net — End Customer', sub:'From Job ID Off Net · Dark Fiber / Broadband / Sim Card', icon:'🌐',
   stages:[
-   {id:'s0', title:'Media Type', desc:'Dark Fiber or Broadband',
+   {id:'s0', title:'Media Type', desc:'Dark Fiber / Broadband / Sim Card',
     fields:(v)=>{
-      let F=[{type:'radio',key:'media',label:'Media Type',options:['Dark Fiber','Broadband']}];
+      let F=[{type:'radio',key:'media',label:'Media Type',options:['Dark Fiber','Broadband','Sim Card'],colspan:true}];
       if(v.media==='Dark Fiber') F.push({type:'radio',key:'sub',label:'Media Sub Type',options:['Chamber Handoff','Direct Handoff'],colspan:true});
       return F;
     }},
@@ -1130,6 +1130,7 @@ offcust:{ title:'Off Net — End Customer', sub:'From Job ID Off Net (Dark Fiber
     fields:()=>[{type:'date',key:'accDate',label:'Acceptance Date'},{type:'textarea',key:'rem',label:'Remarks',colspan:true}],
     actions:()=>[{label:'Accept',cls:'pri',enabled:true,onClick:'toast(\'Dark Fiber accepted\')'}]},
 
+   /* ===== BROADBAND ===== */
    {id:'bb1', title:'Broadband · Stage 1 — Vendors', desc:'(+) add multiple vendors',
     gate:()=>getv('offcust','s0','media')==='Broadband'?{ok:true}:{ok:false,why:'Select Media Type = Broadband.'},
     fields:()=>[
@@ -1144,30 +1145,114 @@ offcust:{ title:'Off Net — End Customer', sub:'From Job ID Off Net (Dark Fiber
    {id:'bb2', title:'Broadband · Stage 2 — Vendor selection', desc:'Select by ARC / OTC / PO',
     gate:()=>getv('offcust','s0','media')==='Broadband'?{ok:true}:{ok:false,why:'Broadband only.'},
     fields:()=>[
-      {type:'info',label:'Show vendor options list.',read:true,colspan:true},
+      {type:'info',label:'Show vendor options list — select by ARC / OTC / PO placement.',read:true,colspan:true},
       {type:'file',key:'po',label:'PO Placement attachment',colspan:true},
     ],
     actions:()=>[{label:'Select vendor',cls:'pri',enabled:true,onClick:'toast(\'Broadband vendor selected\')'}]},
-   {id:'bb3', title:'Broadband · Stage 3 — Service credentials', desc:'PPPoE / Static / DHCP → PR',
+   {id:'bb3', title:'Broadband · Stage 3 — Material Requisition', desc:'POP / DC / Job side',
+    gate:()=>getv('offcust','s0','media')==='Broadband'?{ok:true}:{ok:false,why:'Broadband only.'},
+    fields:()=>[{type:'checks',key:'matreq',label:'Material Request',options:['POP Side','DC Side','Job Side'],colspan:true}],
+    actions:()=>[{label:'Raise Material Request',cls:'pri',enabled:true,onClick:'toast(\'Material requisition raised\')'}]},
+   {id:'bb4', title:'Broadband · Stage 4 — Service credentials', desc:'PPPoE / Static / DHCP',
     gate:()=>getv('offcust','s0','media')==='Broadband'?{ok:true}:{ok:false,why:'Broadband only.'},
     fields:()=>[
       {type:'radio',key:'stype',label:'Service Type',options:['PPPoE','Static','DHCP'],colspan:true},
       {type:'text',key:'sname',label:'Service Name'},{type:'text',key:'user',label:'User Name'},
       {type:'text',key:'pass',label:'Password'},{type:'text',key:'pub',label:'Public IP'},
       {type:'text',key:'acct',label:'Account Number'},
-      {type:'info',label:'After submit → PR generates.',read:true,colspan:true},
-    ],
-    actions:()=>[{label:'Submit → PR',cls:'pri',enabled:true,onClick:'toast(\'Broadband PR generated\')'}]},
-   {id:'bbpr', title:'Broadband · PR Stage 1', desc:'VPN tunnel → UAT handover',
+    ]},
+   {id:'bb5', title:'Broadband · Stage 5 — Last Mile Deployment + Task', desc:'CPE config → install task → PR generates',
     gate:()=>getv('offcust','s0','media')==='Broadband'?{ok:true}:{ok:false,why:'Broadband only.'},
     fields:()=>[
-      {type:'select',key:'aEnd',label:'VPN Tunnel A End (POP/DC)',options:popList(true)},
-      {type:'text',key:'cpe',label:'Customer CPE IP Address'},
-      {type:'text',key:'svlan',label:'Service VLAN (NNI VLAN)'},
-      {type:'file',key:'logs',label:'Reference Logs',multi:true,colspan:true},
-      {type:'info',label:'Then → UAT Handover.',read:true,colspan:true},
+      {type:'select',key:'cpe',label:'CPE Router',hint:'(NetBox IPAM)',options:['CPE-RTR-01','CPE-RTR-02']},
+      {type:'select',key:'cvlan',label:'C VLAN',hint:'(NetBox · by product)',options:['CVLAN-101','CVLAN-102']},
+      {type:'info',label:'<b>Task</b> → assigned to BM → Juggle → Field Engineer · Installation at CPE End (customer):',read:true,colspan:true},
+      {type:'radio',key:'bbLM',label:'Broadband Provider Last Mile Type',options:['Wireless','Wireline'],colspan:true},
+      {type:'file',key:'provSnaps',label:'Broadband Provider Hardware Snaps',multi:true,colspan:true},
+      {type:'file',key:'ourSnaps',label:'Our Setup Snaps',multi:true,colspan:true},
+      {type:'textarea',key:'rem',label:'Remarks',colspan:true},
+      {type:'file',key:'challan',label:'Material Installation Challan',colspan:true},
     ],
-    actions:()=>[{label:'UAT Handover',cls:'pri',enabled:true,onClick:'toast(\'Broadband → UAT Handover\')'}]},
+    actions:()=>[{label:'Submit → PR generates',cls:'pri',enabled:true,onClick:'toast(\'Broadband Stage 5 done → PR generated\')'}]},
+   {id:'bb6', title:'Broadband · Stage 6 — PR Stage 1', desc:'Parent device + L2 service',
+    gate:()=>getv('offcust','s0','media')==='Broadband'?{ok:true}:{ok:false,why:'Broadband only.'},
+    fields:()=>[
+      {type:'info',label:'Job ID details and all the above details (fetched).',read:true,colspan:true},
+      {type:'select',key:'pdev',label:'Parent Device',hint:'(material list by POP/DC)',options:['RTR-A1','SW-A1','RTR-M1']},
+      {type:'text',key:'l2srv',label:'L2 Service Server'},
+      {type:'radio',key:'l2type',label:'L2 Service',options:['L2TP','SSTP','PPTP'],colspan:true},
+      {type:'text',key:'l2user',label:'L2 Service Username'},{type:'text',key:'l2pass',label:'L2 Service Password'},
+    ],
+    actions:()=>[{label:'Submit → PR Stage 2',cls:'pri',enabled:true,onClick:'toast(\'PR Stage 1 saved\')'}]},
+   {id:'bb7', title:'Broadband · PR Stage 2 — Validation → UAT', desc:'Service validation → UAT handover',
+    gate:()=>getv('offcust','s0','media')==='Broadband'?{ok:true}:{ok:false,why:'Broadband only.'},
+    fields:()=>[
+      {type:'info',label:'Show all the above details (fetched).',read:true,colspan:true},
+      {type:'file',key:'clSnaps',label:'Customer Link Service Validation Snaps',multi:true,colspan:true},
+      {type:'textarea',key:'clRem',label:'Remarks',colspan:true},
+      {type:'file',key:'svSnaps',label:'Service Validation Snaps',multi:true,colspan:true},
+      {type:'textarea',key:'svRem',label:'Remarks',colspan:true},
+    ],
+    actions:()=>[{label:'Submit → UAT Handover',cls:'pri',enabled:true,onClick:'toast(\'Broadband → UAT Handover\')'}]},
+
+   /* ===== SIM CARD ===== */
+   {id:'sc1', title:'Sim Card · Stage 1 — Details', desc:'Parent node · carrier · payment · sim type',
+    gate:()=>getv('offcust','s0','media')==='Sim Card'?{ok:true}:{ok:false,why:'Select Media Type = Sim Card.'},
+    fields:(v)=>{
+      let F=[
+        {type:'info',label:'Job ID details (fetched).',read:true,colspan:true},
+        {type:'radio',key:'pnode',label:'Parent Node',options:['POP','DC'],colspan:true},
+      ];
+      if(v.pnode==='POP') F.push({type:'select',key:'pop',label:'POP (Active)',hint:'(name + code)',options:popList()});
+      if(v.pnode==='DC') F.push({type:'select',key:'dc',label:'DC (Active)',hint:'(name + code)',options:['DC-AMD-01','DC-MUM-02','DC-DEL-03']});
+      F.push({type:'select',key:'carrier',label:'Telecom Carrier',options:['Airtel','VI','Jio','BSNL']});
+      F.push({type:'radio',key:'payType',label:'Payment Type',options:['Postpaid','Prepaid']});
+      F.push({type:'text',key:'charges',label:'Charges'});
+      F.push({type:'num',key:'payCycle',label:'Payment Cycle (in Days)'});
+      F.push({type:'date',key:'recharge',label:'Recharge Date'});
+      if(v.payType==='Prepaid') F.push({type:'info',label:'Prepaid → reminder set based on Payment Cycle.',read:true,colspan:true});
+      F.push({type:'radio',key:'simType',label:'Sim Card Type',options:['M2M','Data','Data + Voice'],colspan:true});
+      return F;
+    },
+    actions:()=>[{label:'Submit',cls:'pri',enabled:true,onClick:'toast(\'Sim Card Stage 1 saved\')'}]},
+   {id:'sc2', title:'Sim Card · Stage 2 — Material Requisition', desc:'POP / DC / Job side',
+    gate:()=>getv('offcust','s0','media')==='Sim Card'?{ok:true}:{ok:false,why:'Sim Card only.'},
+    fields:()=>[{type:'checks',key:'matreq',label:'Material Request',options:['POP Side','DC Side','Job Side'],colspan:true}],
+    actions:()=>[{label:'Raise Material Request',cls:'pri',enabled:true,onClick:'toast(\'Material requisition raised\')'}]},
+   {id:'sc3', title:'Sim Card · Stage 3 — Last Mile Deployment + Task', desc:'CPE config → install task',
+    gate:()=>getv('offcust','s0','media')==='Sim Card'?{ok:true}:{ok:false,why:'Sim Card only.'},
+    fields:()=>[
+      {type:'select',key:'cpe',label:'CPE Router',hint:'(NetBox IPAM)',options:['CPE-RTR-01','CPE-RTR-02']},
+      {type:'select',key:'cvlan',label:'C VLAN',hint:'(NetBox · by product)',options:['CVLAN-101','CVLAN-102']},
+      {type:'info',label:'<b>Task</b> → BM → Juggle → Field Engineer · Installation at CPE End (customer):',read:true,colspan:true},
+      {type:'text',key:'signal',label:'Signal Strength'},
+      {type:'file',key:'sigSnaps',label:'Signal Strength Snaps',multi:true},
+      {type:'text',key:'cableStart',label:'Cable Start'},{type:'text',key:'cableEnd',label:'Cable End'},
+      {type:'file',key:'cableSnaps',label:'Cable Snaps',multi:true,colspan:true},
+      {type:'textarea',key:'rem',label:'Remarks',colspan:true},
+      {type:'file',key:'challan',label:'Material Installation Challan',colspan:true},
+    ],
+    actions:()=>[{label:'Submit → PR',cls:'pri',enabled:true,onClick:'toast(\'Sim Card Stage 3 done → PR\')'}]},
+   {id:'sc4', title:'Sim Card · Stage 4 — PR Stage 1', desc:'Parent device + L2 service',
+    gate:()=>getv('offcust','s0','media')==='Sim Card'?{ok:true}:{ok:false,why:'Sim Card only.'},
+    fields:()=>[
+      {type:'info',label:'Job ID details and all the above details (fetched).',read:true,colspan:true},
+      {type:'select',key:'pdev',label:'Parent Device',hint:'(material list by POP/DC)',options:['RTR-A1','SW-A1','RTR-M1']},
+      {type:'text',key:'l2srv',label:'L2 Service Server'},
+      {type:'radio',key:'l2type',label:'L2 Service',options:['L2TP','SSTP','PPTP'],colspan:true},
+      {type:'text',key:'l2user',label:'L2 Service Username'},{type:'text',key:'l2pass',label:'L2 Service Password'},
+    ],
+    actions:()=>[{label:'Submit → PR Stage 2',cls:'pri',enabled:true,onClick:'toast(\'PR Stage 1 saved\')'}]},
+   {id:'sc5', title:'Sim Card · PR Stage 2 — Validation → UAT', desc:'Service validation → UAT handover',
+    gate:()=>getv('offcust','s0','media')==='Sim Card'?{ok:true}:{ok:false,why:'Sim Card only.'},
+    fields:()=>[
+      {type:'info',label:'Show all the above details (fetched).',read:true,colspan:true},
+      {type:'file',key:'clSnaps',label:'Customer Link Service Validation Snaps',multi:true,colspan:true},
+      {type:'textarea',key:'clRem',label:'Remarks',colspan:true},
+      {type:'file',key:'scSnaps',label:'Sim Card Service Validation Snaps',multi:true,colspan:true},
+      {type:'textarea',key:'scRem',label:'Remarks',colspan:true},
+    ],
+    actions:()=>[{label:'Submit → UAT Handover',cls:'pri',enabled:true,onClick:'toast(\'Sim Card → UAT Handover\')'}]},
   ]
 },
 
@@ -1384,8 +1469,7 @@ function submitJobId(){
     go('pop');
   } else if(v.lmtype==='Off Net' && (v.offType==='Broadband'||v.offType==='Sim Card'||v.offType==='Dark Fiber')){
     raise('offcust','customer','Job ID List','Off Net '+v.offType+' · '+(v.cust||''),'New');
-    if(v.offType==='Dark Fiber') vstore('offcust','s0').media='Dark Fiber';
-    if(v.offType==='Broadband'||v.offType==='Sim Card') vstore('offcust','s0').media='Broadband';
+    vstore('offcust','s0').media = v.offType;   // Dark Fiber / Broadband / Sim Card
     go('offcust');
   } else {
     toast('Job submitted — existing POP selected, no feasibility needed.');
@@ -1938,16 +2022,18 @@ function renderFlow(){
 }
 
 function renderGaps(){
+  const resolved=Object.values(GAPS).filter(g=>/RESOLVED/.test(g.t)).length;
   const kpis=`<div class="pillrow">
-    <div class="kpi"><div class="n">11</div><div class="l">gaps flagged</div></div>
-    <div class="kpi"><div class="n">6</div><div class="l">modules designed</div></div>
-    <div class="kpi"><div class="n">7</div><div class="l">cross-module deps</div></div>
+    <div class="kpi"><div class="n">${Object.keys(GAPS).length}</div><div class="l">gaps flagged</div></div>
+    <div class="kpi"><div class="n">${resolved}</div><div class="l">resolved</div></div>
+    <div class="kpi"><div class="n">9</div><div class="l">modules designed</div></div>
   </div>`;
-  const list=Object.entries(GAPS).map(([id,g])=>`
-    <div class="item"><h4>${gapFlag(id)} &nbsp; ${g.t}</h4>
+  const list=Object.entries(GAPS).map(([id,g])=>{
+    const done=/RESOLVED/.test(g.t);
+    return `<div class="item" style="${done?'border-left-color:var(--ok)':''}"><h4>${gapFlag(id)} &nbsp; ${g.t}</h4>
       <div class="where">📍 ${g.where}</div>
-      <div class="ass"><b>Assumption applied in demo:</b> ${g.a}</div>
-    </div>`).join('');
+      <div class="ass"><b>${done?'Resolution:':'Assumption applied in demo:'}</b> ${g.a}</div>
+    </div>`;}).join('');
   return kpis+'<div class="gaplist">'+list+'</div>';
 }
 
