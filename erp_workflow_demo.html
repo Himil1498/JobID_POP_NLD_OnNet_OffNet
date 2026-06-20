@@ -751,8 +751,8 @@ nld:{ title:'NLD / Backhaul Feasibility', sub:'Parallel to POP — draft appears
       if(v.svc==='P2P'){
         F.push({type:'select',key:'telco',label:'Telco',hint:'(+ add multiple)',options:['Vodafone','TTSL','Airtel','BSNL']});
         F.push({type:'select',key:'aEnd',label:'A End (POP/DC — planned or completed)',options:popList(true)});
-        F.push({type:'text',key:'bAddr',label:'D End Address'});
-        F.push({type:'text',key:'bLat',label:'D End Lat'});F.push({type:'text',key:'bLong',label:'D End Long'});
+        F.push({type:'text',key:'bAddr',label:'B End Address'});
+        F.push({type:'text',key:'bLat',label:'B End Lat'});F.push({type:'text',key:'bLong',label:'B End Long'});
       }
       return F;
     },
@@ -760,7 +760,7 @@ nld:{ title:'NLD / Backhaul Feasibility', sub:'Parallel to POP — draft appears
 
    {id:'s2', title:'Stage 2 — BTS details (A/B ends)', desc:'Existing / New L2 / New L1; L2POI form',
     fields:()=>[
-      {type:'repeater',key:'bts',label:'D End BTS details (+ add multiple)',itemLabel:'D End BTS',
+      {type:'repeater',key:'bts',label:'B End BTS details (+ add multiple)',itemLabel:'B End BTS',
         sub:[
           {key:'kind',type:'select',label:'A End BTS Details',options:['Existing','New L2','New L1']},
           // Existing → pick existing POP/DC L2POI + its port & VLAN (fetched into Stage 5)
@@ -772,72 +772,64 @@ nld:{ title:'NLD / Backhaul Feasibility', sub:'Parallel to POP — draft appears
           {key:'aAddr',type:'text',label:'A End Address',showIf:r=>r.kind&&r.kind!=='Existing'},
           {key:'aLat',type:'text',label:'A End Lat',showIf:r=>r.kind&&r.kind!=='Existing'},
           {key:'aLong',type:'text',label:'A End Long',showIf:r=>r.kind&&r.kind!=='Existing'},
-          {key:'bAddr',type:'text',label:'D End Address'},
-          {key:'bLat',type:'text',label:'D End Lat'},{key:'bLong',type:'text',label:'D End Long'},
+          {key:'bAddr',type:'text',label:'B End Address'},
+          {key:'bLat',type:'text',label:'B End Lat'},{key:'bLong',type:'text',label:'B End Long'},
           {key:'feas',type:'select',label:'Feasibility',options:['Feasible','Not Feasible','Information Awaited']},
         ]},
       {type:'info',label:'⚠ If L2 utilises full interface capacity, show warning (based on assigned NLD circuits). If "Information Awaited" → show Action button for future follow-up.',read:true,colspan:true},
     ],
     actions:()=>[{label:'Submit Stage 2',cls:'pri',enabled:true,onClick:'toast(\'NLD Stage 2 saved\')'}]},
 
-   {id:'s2b', title:'Stage 3 — D End BTS Selection & Topology', desc:'Select D End BTS · A/D End handoff (Direct / On Net / Off Net) · POP Feasibility Required',
+   {id:'s2b', title:'Stage 3 — B End Selection & Topology', desc:'Select B End BTS · A End handoff first, then B End',
     fields:(v)=>{
       const bts=getv('nld','s2','bts')||[];
-      const opts=bts.map((r,i)=>'D End '+(i+1)+': '+(r.bAddr||'(no address)')+(r.feas?' — '+r.feas:''));
+      const opts=bts.map((r,i)=>'B End '+(i+1)+': '+(r.bAddr||'(no address)')+(r.feas?' — '+r.feas:''));
       let F=[
         {type:'custom',key:'tbl',render:nldBEndTable,colspan:true},
-        {type:'radio',key:'selected',label:'Select one D End BTS',options:opts.length?opts:['(add D End BTS in Stage 2 first)'],colspan:true},
+        {type:'radio',key:'selected',label:'Select one B End BTS',options:opts.length?opts:['(add B End BTS in Stage 2 first)'],colspan:true},
       ];
-      // selected D End BTS row kind (A End BTS Details set in Stage 2)
       let selKind=null;
-      if(v.selected){ const m=v.selected.match(/^D End (\d+):/); if(m){ const row=bts[parseInt(m[1],10)-1]; selKind=row&&row.kind; } }
-      // ---- A End (Origin Point) handoff ----
-      F.push({type:'info',label:'<b>A End (Origin Point) — handoff</b>',read:true,colspan:true});
+      if(v.selected){ const m=v.selected.match(/^B End (\d+):/); if(m){ const row=bts[parseInt(m[1],10)-1]; selKind=row&&row.kind; } }
+      const isNew=(selKind==='New L1' || selKind==='New L2');
+      // ---- A End handoff (asked first) ----
       F.push({type:'radio',key:'aHandoff',label:'A End Handoff Type',options:['Direct','On Net','Off Net'],colspan:true});
-      if(v.aHandoff==='On Net') F.push({type:'radio',key:'aOnNetType',label:'A End On Net Type',options:['Wireless','Wireline','Ring'],colspan:true});
-      // A End Parent POP appears when the selected D End BTS is New L1 / New L2 (Stage 2)
-      if(selKind==='New L1' || selKind==='New L2') F.push({type:'select',key:'aParentPop',label:'A End Parent POP',hint:'(New '+selKind+' in Stage 2 — BTS hangs off this POP)',options:popList()});
-      // A End On Net / Off Net → a new POP must be created → raise POP Feasibility request (carries NLD reference)
-      if(v.aHandoff==='On Net' || v.aHandoff==='Off Net'){
-        const raised=S.requests.some(r=>r.module==='pop' && r.type==='nld-aend');
-        F.push({type:'info',label:'⚠ A End handoff is <b>'+v.aHandoff+'</b> → a <b>new POP must be created</b> for the A End. '+(raised?'<span class="tag live">Request generated in POP Feasibility (NLD ref)</span>':'Use “Generate POP Feasibility request (A End)” below — it carries the NLD reference.'),colspan:true});
+      if(v.aHandoff==='On Net'){
+        F.push({type:'radio',key:'aOnNetType',label:'A End On Net Type',options:['Wireless','Wireline','Ring'],colspan:true});
+        if(isNew) F.push({type:'select',key:'aParentPop',label:'A End Parent POP',options:popList()});
       }
-      // ---- D End (Destination Point) handoff ----
-      F.push({type:'info',label:'<b>D End (Destination Point) — handoff</b>',read:true,colspan:true});
-      F.push({type:'radio',key:'dHandoff',label:'D End Handoff Type',options:['Direct','On Net','Off Net'],colspan:true});
-      if(v.dHandoff==='On Net') F.push({type:'radio',key:'dOnNetType',label:'D End On Net Type',options:['Wireless','Wireline','Ring'],colspan:true});
-      if(v.dHandoff && v.dHandoff!=='Direct') F.push({type:'select',key:'dParentPop',label:'D End Parent POP',hint:'(BTS hangs off this POP)',options:popList()});
-      // ---- derived scenario (matches the topology diagram) ----
-      const sc=nldScenario(v.aHandoff,v.dHandoff);
+      if(v.aHandoff==='Off Net' && isNew) F.push({type:'select',key:'aParentPop',label:'A End Parent POP',options:popList()});
+      // A End POP request auto-generates once an On Net sub-type is chosen
+      nldReconcilePop('nld-aend', v.aHandoff==='On Net' && !!v.aOnNetType, 'New POP for NLD A End'+(v.aOnNetType?' ('+v.aOnNetType+')':''));
+      // ---- B End handoff (only when A End is On Net / Off Net) ----
+      if(v.aHandoff==='On Net' || v.aHandoff==='Off Net'){
+        F.push({type:'radio',key:'bHandoff',label:'B End Handoff Type',options:['Direct','On Net','Off Net'],colspan:true});
+        if(v.bHandoff==='On Net') F.push({type:'radio',key:'bOnNetType',label:'B End On Net Type',options:['Wireless','Wireline','Ring'],colspan:true});
+      }
+      // B End POP request auto-generates when B End is On Net / Off Net (Direct = none)
+      nldReconcilePop('nld-bend', (v.aHandoff==='On Net'||v.aHandoff==='Off Net') && (v.bHandoff==='On Net'||v.bHandoff==='Off Net'), 'New POP for NLD B End'+(v.bHandoff?' ('+v.bHandoff+')':''));
+      // ---- derived scenario ----
+      const sc=nldScenario(v.aHandoff, v.bHandoff);
       if(sc) F.push({type:'info',label:'🔎 '+sc,colspan:true});
-      // ---- POP feasibility ----
       F.push({type:'radio',key:'popReq',label:'POP Feasibility Required',options:['Yes','No']});
-      if(v.popReq==='No') F.push({type:'info',label:'→ Direct PO placement (POP Feasibility Stage 3).',colspan:true});
-      if(v.popReq==='Yes') F.push({type:'info',label:'→ POP Feasibility Stage 2.',colspan:true});
       return F;
     },
-    actions:(v)=>{
-      const a=[{label:'Submit D End Selection',cls:'pri',enabled:true,onClick:'toast(\'D End BTS & topology saved\')'}];
-      if((v.aHandoff==='On Net'||v.aHandoff==='Off Net') && !S.requests.some(r=>r.module==='pop'&&r.type==='nld-aend'))
-        a.push({label:'Generate POP Feasibility request (A End)',cls:'',enabled:true,onClick:'nldAEndNewPop()'});
-      return a;
-    }},
+    actions:()=>[{label:'Submit B End Selection',cls:'pri',enabled:true,onClick:'toast(\'NLD Stage 3 saved\')'}]},
 
-   {id:'s3', title:'Stage 4 — Selection + commercials', desc:'Selected D End (from Stage 3) → ZOHO Books',
+   {id:'s3', title:'Stage 4 — Selection + commercials', desc:'Selected B End (from Stage 3) → ZOHO Books',
     fields:()=>[
-      {type:'info',label:'Selected D End BTS from Stage 3: <b>'+(getv('nld','s2b','selected')||'—')+'</b> — capture commercials.',read:true,colspan:true},
+      {type:'info',label:'Selected B End BTS from Stage 3: <b>'+(getv('nld','s2b','selected')||'—')+'</b> — capture commercials.',read:true,colspan:true},
       {type:'text',key:'arc',label:'ARC'},{type:'text',key:'otc',label:'OTC'},
       {type:'info',label:'On submit → call to ZOHO Books.',read:true,colspan:true},
     ],
     actions:()=>[{label:'Submit Stage 4',cls:'pri',enabled:true,onClick:'toast(\'NLD Stage 4 → ZOHO Books\')'}]},
 
-   {id:'s4', title:'Stage 5 — Port requirement', desc:'Fetch NLD info from Stage 4 · A-end L2POI/VLAN · D-end port',
+   {id:'s4', title:'Stage 5 — Port requirement', desc:'Fetch NLD info from Stage 4 · A-end L2POI/VLAN · B-end port',
     fields:()=>[
       {type:'info',label:'Fetch NLD info from Stage 4 (NLD back).',read:true,colspan:true},
       {type:'text',key:'orderId',label:'Order ID'},
       {type:'info',label:'A-end port detail: existing L2POI detail.',read:true,colspan:true},
       {type:'select',key:'avlan',label:'A-end VLAN',hint:'(dropdown from NetBox VLAN group)',options:['VLAN-100','VLAN-200','VLAN-300']},
-      {type:'radio',key:'bport',label:'Port requirement for D-end',options:['1 Gbps Ethernet','1 Gbps Optical','10 Gbps Ethernet','10 Gbps Optical'],colspan:true},
+      {type:'radio',key:'bport',label:'Port requirement for B-end',options:['1 Gbps Ethernet','1 Gbps Optical','10 Gbps Ethernet','10 Gbps Optical'],colspan:true},
     ],
     actions:()=>[{label:'Submit Stage 5',cls:'pri',enabled:true,onClick:'toast(\'NLD Stage 5 saved\')'}]},
 
@@ -851,7 +843,7 @@ nld:{ title:'NLD / Backhaul Feasibility', sub:'Parallel to POP — draft appears
         F.push({type:'info',label:'A-end VLAN (fetched from Stage 2): <b>'+(ex.avlan||'—')+'</b>',read:true,colspan:true});
       }
       F.push({type:'radio',key:'golive',label:'Go Live Received from Telco',options:['Yes','No']});
-      F.push({type:'info',label:'POP Feasibility Required is captured in Stage 3 (D End BTS Selection): <b>'+(getv('nld','s2b','popReq')||'—')+'</b>',read:true,colspan:true});
+      F.push({type:'info',label:'POP Feasibility Required is captured in Stage 3 (B End Selection): <b>'+(getv('nld','s2b','popReq')||'—')+'</b>',read:true,colspan:true});
       F.push({type:'info',label:'After Stage 6 → PR generates. '+gapFlag('G7'),read:true,colspan:true});
       return F;
     },
@@ -863,11 +855,11 @@ nld:{ title:'NLD / Backhaul Feasibility', sub:'Parallel to POP — draft appears
       const tel=getv('nld','s1','telco');
       let F=[{type:'info',label:'Order ID captured in Stage 5: <b>'+(getv('nld','s4','orderId')||'—')+'</b>',read:true,colspan:true}];
       F.push({type:'text',key:'provId',label:provLabel(tel),hint:'(provider-specific)'});
-      F.push({type:'info',label:'A/D End: Address, City, State, Pincode, Lat, Long, Port (all FETCH).',read:true,colspan:true});
+      F.push({type:'info',label:'A/B End: Address, City, State, Pincode, Lat, Long, Port (all FETCH).',read:true,colspan:true});
       F.push({type:'text',key:'aPort',label:'A End Port Details'});
       F.push({type:'select',key:'aVlan',label:'A End VLAN',hint:'(from L2POI, editable)',options:['VLAN-100','VLAN-200']});
-      F.push({type:'text',key:'bPort',label:'D End Port Details'});
-      F.push({type:'text',key:'bVlan',label:'D End VLAN (if D is L2POI)'});
+      F.push({type:'text',key:'bPort',label:'B End Port Details'});
+      F.push({type:'text',key:'bVlan',label:'B End VLAN (if B is L2POI)'});
       F.push({type:'text',key:'tsp',label:'TSP Circuit ID'});F.push({type:'text',key:'tspA',label:'TSP Circuit ID A'});F.push({type:'text',key:'tspB',label:'TSP Circuit ID B'});
       F.push({type:'info',label:'On submit → PR Stage 2 enabled · push Provider/Account/Type/Circuit/Status(Planned) to NetBox · system generates NLD/Backhaul ID.',read:true,colspan:true});
       return F;
@@ -876,7 +868,7 @@ nld:{ title:'NLD / Backhaul Feasibility', sub:'Parallel to POP — draft appears
 
    {id:'inst', title:'Installation Stage 1 (Juggle)', desc:'FE on-site → BM approve/revalidate → Infra → PR4',
     fields:()=>[
-      {type:'info',label:'Infra Info (read-only if Managed/Infra CoLo). D End Port + Address/Lat/Long fetched from Stage 5.',read:true,colspan:true},
+      {type:'info',label:'Infra Info (read-only if Managed/Infra CoLo). B End Port + Address/Lat/Long fetched from Stage 5.',read:true,colspan:true},
       {type:'checks',key:'pwr',label:'Power Source',options:['AC','DC','Critical','Non Critical','UPS Backup'],colspan:true},
       {type:'radio',key:'hyg',label:'Space Hygiene',options:['Yes','No']},
       {type:'radio',key:'cable',label:'Cable Dressing Quality',options:['Yes','No']},
@@ -892,10 +884,10 @@ nld:{ title:'NLD / Backhaul Feasibility', sub:'Parallel to POP — draft appears
     fields:()=>[
       {type:'info',label:'If A End L2POI is New:',read:true,colspan:true},
       {type:'text',key:'aDuplex',label:'A End Speed Duplex'},
-      {type:'num',key:'mtu',label:'D End MTU Size reachability'},
+      {type:'num',key:'mtu',label:'B End MTU Size reachability'},
       {type:'num',key:'lat',label:'Latency'},
-      {type:'text',key:'bDuplex',label:'D End Speed Duplex'},
-      {type:'file',key:'bRef',label:'D End Link Status Reference',colspan:true},
+      {type:'text',key:'bDuplex',label:'B End Speed Duplex'},
+      {type:'file',key:'bRef',label:'B End Link Status Reference',colspan:true},
       {type:'info',label:'On submit → push to NetBox; Device / Power Feeds / Cable convert Planned → Active.',read:true,colspan:true},
     ],
     actions:()=>[{label:'Submit PR Stage 5',cls:'pri',enabled:true,onClick:'toast(\'NetBox: Planned → Active\')'}]},
@@ -1190,19 +1182,19 @@ function nldAEndExistingRow(){
 function nldAEndExisting(){ return !!nldAEndExistingRow(); }
 function nldBEndTable(){
   const bts=getv('nld','s2','bts')||[];
-  if(!bts.length) return `<div class="f full"><div class="info read">No D End BTS added yet — add them in Stage 2.</div></div>`;
+  if(!bts.length) return `<div class="f full"><div class="info read">No B End BTS added yet — add them in Stage 2.</div></div>`;
   const sel=getv('nld','s2b','selected');
-  return `<div class="f full"><label>D End BTS details (from Stage 2)</label>
-   <table class="tbl"><thead><tr><th>#</th><th>A End BTS</th><th>D End Address</th><th>D End Lat</th><th>D End Long</th><th>Feasibility</th></tr></thead>
-   <tbody>${bts.map((r,i)=>`<tr class="${sel&&sel.indexOf('D End '+(i+1)+':')===0?'sel':''}"><td>${i+1}</td><td>${r.kind||'—'}</td><td>${r.bAddr||'—'}</td><td>${r.bLat||'—'}</td><td>${r.bLong||'—'}</td><td>${r.feas||'—'}</td></tr>`).join('')}</tbody>
+  return `<div class="f full"><label>B End BTS details (from Stage 2)</label>
+   <table class="tbl"><thead><tr><th>#</th><th>A End BTS</th><th>B End Address</th><th>B End Lat</th><th>B End Long</th><th>Feasibility</th></tr></thead>
+   <tbody>${bts.map((r,i)=>`<tr class="${sel&&sel.indexOf('B End '+(i+1)+':')===0?'sel':''}"><td>${i+1}</td><td>${r.kind||'—'}</td><td>${r.bAddr||'—'}</td><td>${r.bLat||'—'}</td><td>${r.bLong||'—'}</td><td>${r.feas||'—'}</td></tr>`).join('')}</tbody>
    </table></div>`;
 }
 function nldScenario(a,d){
   if(!a||!d) return null;
   const ad=a==='Direct', dd=d==='Direct';
-  if(ad&&dd) return '<b>Scenario 1 — Direct Backhaul</b> · A End ↔ D End direct (no BTS, no last mile)';
-  if(!ad&&!dd) return '<b>Scenario 2 — Backhaul at Both Ends</b> · A →BTS→ NLD →BTS→ D (last mile at both ends)';
-  return '<b>Scenario 3 — Backhaul at one end, Direct at other</b> · '+(ad?'A End Direct, D End '+d:'A End '+a+', D End Direct');
+  if(ad&&dd) return '<b>Scenario 1 — Direct Backhaul</b> · A End ↔ B End direct (no BTS, no last mile)';
+  if(!ad&&!dd) return '<b>Scenario 2 — Backhaul at Both Ends</b> · A →BTS→ NLD →BTS→ B (last mile at both ends)';
+  return '<b>Scenario 3 — Backhaul at one end, Direct at other</b> · '+(ad?'A End Direct, B End '+d:'A End '+a+', B End Direct');
 }
 function connectedBackhaulSummary(){
   const r=S.requests.filter(x=>['nld','onnet','offp2p'].includes(x.module));
@@ -1323,11 +1315,10 @@ function nldGoLive(){
   toast('NLD Go-Live recorded → POP task module gate satisfied (G7). Stage 6 enabled.');
   rerender();
 }
-function nldAEndNewPop(){
-  if(S.requests.some(r=>r.module==='pop' && r.type==='nld-aend')){ toast('A End POP request already generated.'); return; }
-  S.flags.popRaised=true;
-  raise('pop','nld-aend','NLD — A End handoff','New POP for NLD A End (carries NLD reference)','New · NLD ref');
-  rerender();
+function nldReconcilePop(tag, need, label){
+  const exists=S.requests.some(r=>r.type===tag && r.module==='pop');
+  if(need && !exists){ S.flags.popRaised=true; raise('pop',tag,'NLD',label+' (NLD ref)','New · NLD ref'); }
+  else if(!need && exists){ S.requests=S.requests.filter(r=>r.type!==tag); renderNav(); }
 }
 function genNldId(){
   raise('nld','id','PR','System-generated NLD/Backhaul ID','New Activation Pending');
