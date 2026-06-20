@@ -139,6 +139,19 @@
   .chip2{flex:0 0 auto;border:1px solid #cbd5e1;border-radius:8px;padding:6px 9px;font-size:11px;background:#fff;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;cursor:default}
   .chip2.key{border-color:var(--brand);background:#eff4ff;color:var(--brand-dk);font-weight:700}
   .conn{flex:0 0 auto;color:#94a3b8;padding:0 5px;font-size:13px}
+  /* data-flow diagrams (NLD / On Net / Off Net) */
+  .dwrap{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:start}
+  @media(max-width:900px){.dwrap{grid-template-columns:1fr;max-width:560px}}
+  .dcol h4{margin:0 0 10px;font-size:13.5px}
+  .dstep{border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:#fff;box-shadow:var(--sh)}
+  .dstep.key{border-color:var(--brand);background:#eff4ff}
+  .dstep .dt{font-weight:600;font-size:12.5px}
+  .dstep .ds{color:var(--muted);font-size:11.5px;margin-top:2px;line-height:1.35}
+  .dstep .dbranch{color:var(--warn);font-size:11px;margin-top:5px;font-weight:600}
+  .dconn{position:relative;display:flex;align-items:center;justify-content:center;min-height:30px;padding:5px 0}
+  .dconn .dline{position:absolute;top:0;bottom:0;left:50%;width:2px;background:#94a3b8;transform:translateX(-50%)}
+  .dconn .dtip{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #94a3b8}
+  .dconn .dlbl{position:relative;background:#fff;border:1px solid var(--line);border-radius:20px;font-size:10px;color:#475569;padding:1px 9px;text-align:center}
   .toast{position:fixed;bottom:22px;right:22px;background:#0f172a;color:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;max-width:340px;z-index:50;opacity:0;transform:translateY(10px);transition:.25s}
   .toast.show{opacity:1;transform:none}
   .pillrow{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 16px}
@@ -1526,6 +1539,13 @@ function bindStageHeads(){
 /* re-render current module/view (used by field changes) */
 function rerender(){ render(); }
 
+function dataFlow(steps){
+  return '<div class="dflow">'+steps.map((s,i)=>{
+    let h=`<div class="dstep ${s.key?'key':''}"><div class="dt">${s.t}</div>${s.s?`<div class="ds">${s.s}</div>`:''}${s.branch?`<div class="dbranch">⤳ ${s.branch}</div>`:''}</div>`;
+    if(i<steps.length-1) h+=`<div class="dconn"><span class="dline"></span><span class="dtip"></span>${s.e?`<span class="dlbl">${s.e}</span>`:''}</div>`;
+    return h;
+  }).join('')+'</div>';
+}
 function renderWorkflow(){
   const order=['jobid','pop','nld','onnet','offcust','offp2p','l2poi'];
   const intro={
@@ -1543,27 +1563,46 @@ function renderWorkflow(){
     nld:'➜ may generate child <b>POP Feasibility</b> + <b>On Net / Off Net</b> requests · registers in <b>L1/L2POI</b>.',
     onnet:'', offcust:'', offp2p:'', l2poi:''
   };
-  // ---- swimlane diagram ----
-  const laneCls={jobid:'entry',pop:'hub',l2poi:'reg'};
-  const dep={nld:'⤴ starts after POP Stage 1',onnet:'⤴ after POP Stage 3 (POP code)',offp2p:'⤴ after POP Stage 3 (POP code)',offcust:'⤴ from Job ID List (Off-Net)'};
-  const keyStage={'jobid.s1':1,'pop.s3':1,'nld.s2b':1};
-  let swim='<div class="swim">';
-  order.forEach(mod=>{
-    const M=MODULES[mod];
-    const chips=M.stages.map((st,si)=>{
-      const t=(st.title+(st.desc?' — '+st.desc:'')).replace(/"/g,'&quot;');
-      const key=keyStage[mod+'.'+st.id]?'key':'';
-      return (si?'<span class="conn">→</span>':'')+`<span class="chip2 ${key}" title="${t}">${st.title}</span>`;
-    }).join('');
-    swim+=`<div class="lane ${laneCls[mod]||''}">
-      <div class="lh"><span class="ln">${M.icon} ${M.title}</span>${dep[mod]?`<span class="lc">${dep[mod]}</span>`:''}</div>
-      <div class="chips">${chips}</div>
-    </div>`;
-  });
-  swim+='</div>';
+  // ---- three data-flow diagrams (NLD / On Net / Off Net) ----
+  const nldSteps=[
+    {t:'Stage 1 — Service',s:'Bandwidth · IIL/P2P · A End (POP/DC) · B End address',e:'feasibility request'},
+    {t:'Stage 2 — BTS details',s:'A/B ends · Existing / New L2 / New L1 · feasibility per row',e:'feasible records'},
+    {t:'Stage 3 — Network Design',s:'Select one B End · classify A/B Existing or New · handoff',e:'commercials',key:1,branch:'New end + On/Off-Net → child POP Feasibility + On/Off-Net request'},
+    {t:'Stage 4 — Selection + commercials',s:'ARC / OTC → ZOHO Books',e:'selected end'},
+    {t:'Stage 5 — Port requirement',s:'Order ID · A-end VLAN · B-end port',e:'PR generates'},
+    {t:'Stage 6 — Go Live from Telco',s:'Go-Live Yes/No · gates POP task module',e:'PR'},
+    {t:'Stage 7 — PR / Order details',s:'Provider IDs · TSP circuit → NetBox · NLD ID',e:'task'},
+    {t:'Installation (Juggle)',s:'FE on-site checklist → BM',e:'→ POP Stage 4 approve / revalidate'},
+    {t:'PR Stage 5 — Link validation',s:'Speed / MTU / Latency · NetBox Planned → Active',e:''},
+    {t:'PR Stage 6 — Surveillance',s:'Testing logs · 3-day observation',e:'circuit active'},
+    {t:'Stage 8 — Acceptance',s:'Acceptance snap/date → Invoice (Kho-Kho)',e:''}
+  ];
+  const onnetSteps=[
+    {t:'Stage 1 — Service type',s:'Wireless / Wireline (after POP code) · A/B End POP · GIS attachment',e:'',key:1},
+    {t:'Stage 2 — After PR Stage 5',s:'Wireless: fetch task data · Wireline: fiber length / L2POI',e:'feasibility'},
+    {t:'Stage 3 — Selection + commercials',s:'Pick feasible B End · ARC/OTC → ZOHO',e:''},
+    {t:'Stage 4 — Port requirement',s:'A-end VLAN · B-end port',e:'PR generates'},
+    {t:'Stage 5 — Order / PR',s:'Provider IDs · TSP → NetBox · Backhaul ID',e:'task'},
+    {t:'Installation (Juggle)',s:'On Net details · GIS snaps · materials → BM',e:'→ POP Stage 4'},
+    {t:'PR Stage 5 — Link validation',s:'Speed / MTU / Latency · NetBox Active',e:''},
+    {t:'PR Stage 6 — Surveillance',s:'Testing logs · 3-day observation',e:''},
+    {t:'Stage 6 — Acceptance',s:'Acceptance → Invoice (Kho-Kho)',e:''}
+  ];
+  const offSteps=[
+    {t:'Stage 1 — Ends',s:'A = existing POP · B = after POP code · Chamber / Direct Handoff',e:'',key:1},
+    {t:'Stage 2 — Vendor collection',s:'+ multiple vendors · ISP · ARC/OTC · billing cycle',e:'vendor list'},
+    {t:'Stage 3 — Vendor selection',s:'Pick one vendor → add to system',e:'Chamber → Stage 4 · Direct → Stage 5',branch:'Direct Handoff skips Stage 4'},
+    {t:'Stage 4 — Distances (Chamber only)',s:'A↔Vendor-A · B↔Vendor-B chamber distances → push to Active NLD/Backhaul',e:''},
+    {t:'Stage 5 — Acceptance',s:'Acceptance date · remarks',e:''}
+  ];
+  const diagrams=`<div class="dwrap">
+    <div class="dcol"><h4>🛰️ NLD / Backhaul — data flow</h4>${dataFlow(nldSteps)}</div>
+    <div class="dcol"><h4>🔗 On Net Backhaul — data flow</h4>${dataFlow(onnetSteps)}</div>
+    <div class="dcol"><h4>🔀 Off Net (POP↔POP) — data flow</h4>${dataFlow(offSteps)}</div>
+  </div>`;
 
-  let html='<p class="muted" style="margin:0 0 14px">The complete process as a swimlane diagram — each module is a lane, stages flow left→right, blue chips are key milestones. Hover a chip for its description. Detailed timeline below. <span class="wfx">conditional</span> = gated stage.</p>'+swim;
-  html+='<h3 style="margin:22px 0 10px;font-size:15px">Stage details</h3>';
+  let html='<p class="muted" style="margin:0 0 14px">Stage-wise data flow for the three backhaul types. Each box is a stage; the connector line shows what data flows to the next stage; <span style="color:#b45309">orange ⤳</span> notes a conditional side-output. Full per-module stage details below.</p>'+diagrams;
+  html+='<h3 style="margin:24px 0 10px;font-size:15px">All modules — stage details</h3>';
   order.forEach((mod,mi)=>{
     const M=MODULES[mod];
     html+=`<div class="stage" style="margin-bottom:16px">
