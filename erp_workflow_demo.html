@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ERP Workflow Demo — Job ID / POP / NLD / On Net / Off Net</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --panel:#ffffff; --ink:#1f2733; --muted:#6b7686; --line:#e3e8ef;
+    --brand:#2563eb; --brand-dk:#1d4ed8; --ok:#15803d; --okbg:#e7f6ec;
+    --warn:#b45309; --warnbg:#fff4e2; --bad:#b91c1c; --badbg:#fdeaea;
+    --draft:#6b7686; --draftbg:#eef1f5; --live:#0f766e; --livebg:#e2f6f3;
+    --chip:#eef2ff; --chipink:#3730a3;
+    --radius:10px; --sh:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  a{color:var(--brand)}
+  /* layout */
+  .app{display:grid;grid-template-columns:280px 1fr;min-height:100vh}
+  .side{background:#0f172a;color:#cbd5e1;padding:0;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .side .logo{padding:18px 18px 10px;font-weight:700;color:#fff;font-size:15px;letter-spacing:.2px}
+  .side .logo small{display:block;font-weight:400;color:#7c8aa0;font-size:11px;margin-top:3px}
+  .navsec{padding:10px 12px 4px;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.8px}
+  .navitem{display:flex;align-items:center;gap:8px;padding:9px 16px;cursor:pointer;border-left:3px solid transparent;color:#cbd5e1}
+  .navitem:hover{background:#1e293b}
+  .navitem.active{background:#1e293b;border-left-color:var(--brand);color:#fff}
+  .navitem .ic{width:18px;text-align:center;opacity:.9}
+  .navitem .nm{flex:1}
+  .navitem .badge{background:#334155;color:#e2e8f0;border-radius:20px;font-size:10.5px;padding:1px 7px;min-width:18px;text-align:center}
+  .navitem .badge.has{background:var(--brand);color:#fff}
+  .main{padding:0 0 60px}
+  .topbar{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 26px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20}
+  .topbar h1{font-size:16px;margin:0;flex:1}
+  .topbar .sub{color:var(--muted);font-size:12px}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 13px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
+  .btn:hover{border-color:#c3ccd8}
+  .btn.pri{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.pri:hover{background:var(--brand-dk)}
+  .btn.ghost{background:transparent}
+  .btn.sm{padding:4px 9px;font-size:12px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .wrap{padding:22px 26px;max-width:1080px}
+  /* cards / stages */
+  .stage{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--sh);overflow:hidden}
+  .stage.locked{opacity:.96}
+  .stage>.head{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);cursor:pointer;background:#fbfcfe}
+  .stage>.head .stg{font-weight:700}
+  .stage>.head .desc{color:var(--muted);font-size:12px;font-weight:400}
+  .stage>.head .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .stage>.body{padding:16px 18px}
+  .stage.collapsed>.body{display:none}
+  .lockmsg{display:flex;gap:8px;align-items:flex-start;background:var(--draftbg);color:var(--muted);padding:10px 12px;border-radius:8px;font-size:12.5px}
+  /* form grid */
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px 18px}
+  .grid.one{grid-template-columns:1fr}
+  .grid.three{grid-template-columns:repeat(3,1fr)}
+  .f{display:flex;flex-direction:column;gap:5px}
+  .f.full{grid-column:1/-1}
+  .f label{font-size:12.5px;font-weight:600;color:#374151;display:flex;align-items:center;gap:6px}
+  .f .hint{font-weight:400;color:var(--muted);font-size:11.5px}
+  .req{color:var(--bad)}
+  input,select,textarea{font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);width:100%}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+  textarea{min-height:64px;resize:vertical}
+  .radios,.checks{display:flex;flex-wrap:wrap;gap:8px}
+  .opt{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer;background:#fff;font-size:12.5px}
+  .opt:hover{border-color:#c3ccd8}
+  .opt.sel{border-color:var(--brand);background:#eff4ff;color:var(--brand-dk);font-weight:600}
+  .opt input{width:auto;margin:0}
+  .filebox{border:1px dashed #cbd5e1;border-radius:8px;padding:10px 12px;color:var(--muted);font-size:12px;background:#fbfcfe}
+  input.fileinp{border-style:dashed;background:#fbfcfe}
+  .info{background:#f8fafc;border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:8px;padding:10px 12px;font-size:12.5px;color:#334155}
+  .info.read{border-left-color:#94a3b8}
+  /* repeater */
+  .rep{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;background:#fbfcfe;position:relative}
+  .rep .rmv{position:absolute;top:8px;right:8px}
+  .rep .ridx{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+  /* table */
+  table.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.tbl th,table.tbl td{border:1px solid var(--line);padding:8px 9px;text-align:left;vertical-align:top}
+  table.tbl th{background:#f1f5f9;font-size:11.5px;color:#475569}
+  table.tbl tr.sel{background:#eff4ff}
+  /* tags */
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}
+  .tag.ok{background:var(--okbg);color:var(--ok)}
+  .tag.warn{background:var(--warnbg);color:var(--warn)}
+  .tag.bad{background:var(--badbg);color:var(--bad)}
+  .tag.draft{background:var(--draftbg);color:var(--draft)}
+  .tag.live{background:var(--livebg);color:var(--live)}
+  .tag.chip{background:var(--chip);color:var(--chipink)}
+  /* gap flag */
+  .gap{display:inline-flex;align-items:center;gap:4px;background:var(--warnbg);color:var(--warn);border:1px solid #fcd9a6;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;cursor:help}
+  .gapnote{background:var(--warnbg);border:1px solid #fcd9a6;border-radius:8px;padding:9px 12px;font-size:12px;color:#7c4a06;margin-top:6px}
+  .gapnote b{color:#92400e}
+  /* flow diagram */
+  .flow{display:flex;flex-direction:column;gap:0}
+  .fnode{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;box-shadow:var(--sh);position:relative}
+  .fnode h3{margin:0 0 4px;font-size:14px}
+  .fnode p{margin:0;color:var(--muted);font-size:12px}
+  .farrow{align-self:center;color:#94a3b8;font-size:20px;margin:6px 0}
+  .frow{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .toast{position:fixed;bottom:22px;right:22px;background:#0f172a;color:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;max-width:340px;z-index:50;opacity:0;transform:translateY(10px);transition:.25s}
+  .toast.show{opacity:1;transform:none}
+  .pillrow{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 16px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--sh);min-width:150px}
+  .kpi .n{font-size:22px;font-weight:800}
+  .kpi .l{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px}
+  .gaplist .item{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:10px;padding:13px 16px;margin-bottom:12px;box-shadow:var(--sh)}
+  .gaplist .item h4{margin:0 0 4px;font-size:13.5px}
+  .gaplist .item .where{color:var(--muted);font-size:11.5px;margin-bottom:6px}
+  .gaplist .item .ass{font-size:12.5px;background:#f8fafc;border-radius:6px;padding:7px 10px;margin-top:6px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:14px}
+  .muted{color:var(--muted)}
+  hr.sep{border:none;border-top:1px dashed var(--line);margin:16px 0}
+  .subhead{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#475569;margin:4px 0 10px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="logo">Optimal ERP — Provisioning<small>Workflow visualizer · demo build</small></div>
+    <div class="navsec">Origin</div>
+    <div id="nav"></div>
+    <div class="navsec">Views</div>
+    <div class="navitem" data-view="flow"><span class="ic">🗺️</span><span class="nm">Flow &amp; Dependencies</span></div>
+    <div class="navitem" data-view="gaps"><span class="ic">⚠️</span><span class="nm">Gaps &amp; Assumptions</span><span class="badge has" id="gapBadge">11</span></div>
+    <div class="navsec">Demo</div>
+    <div class="navitem" data-act="reset"><span class="ic">↺</span><span class="nm">Reset demo state</span></div>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1 id="ttl">Job ID List</h1>
+        <div class="sub" id="tsub">Entry decision tree — drives the whole workflow</div>
+      </div>
+      <div class="right" style="margin-left:auto;display:flex;gap:8px" id="topActions"></div>
+    </div>
+    <div class="wrap" id="view"></div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================================
+   ERP WORKFLOW DEMO
+   Single-file, no dependencies. Declarative conditional-field engine.
+   Faithful to the 6 source PDFs. Gaps are flagged inline with ⚠ + notes.
+   ============================================================================ */
+
+/* ---------- shared workflow state ---------- */
+const S = {
+  cur: 'jobid',                 // current module/view
+  showData:false,               // captured-data panel toggle
+  collapsed: {},                // stageKey -> bool
+  values: {},                   // module.stage -> {field:value}
+  flags: {                      // workflow milestones used for gating
+    popRaised:false, popCode:null, popStage1Done:false, popStage3Done:false,
+    nldGoLive:false
+  },
+  requests: []                  // {id,module,type,from,status,label}
+};
+let SEQ = 1;
+
+/* ---------- helper to read/write field values ---------- */
+function vstore(mod, stage){ const k=mod+'.'+stage; return (S.values[k] ||= {}); }
+function getv(mod,stage,key){ return vstore(mod,stage)[key]; }
+function setv(mod,stage,key,val){ vstore(mod,stage)[key]=val; }
+
+/* ---------- request routing (connected simulation) ---------- */
+function raise(module,type,from,label,status){
+  const r={id:(module.toUpperCase().slice(0,3))+'-'+String(SEQ++).padStart(4,'0'),
+           module,type,from,label,status:status||'New'};
+  S.requests.push(r); renderNav();
+  toast('→ Request raised in <b>'+MODULES[module].title+'</b><br>'+r.id+' · '+label);
+  return r;
+}
+function reqsFor(mod){ return S.requests.filter(r=>r.module===mod); }
+function setReqStatus(mod,type,status){
+  S.requests.filter(r=>r.module===mod && (!type||r.type===type)).forEach(r=>r.status=status);
+  renderNav();
+}
+
+/* ============================================================================
+   GAP REGISTRY  (best-guess assumptions are annotated inline by id)
+   ============================================================================ */
+const GAPS = {
+  G1:{t:'Sim Card flow not defined',where:'Job ID List → Off Net → Sim Card',
+      a:'Assumed: routes to the Off Net (End Customer) module like Broadband, using the Tunnel DC. No Sim Card-specific form provided.'},
+  G2:{t:'Dark Fiber Feasibility module missing',where:'Job ID List → On Net → Wireline → Ring → Dark Fiber Ring',
+      a:'Assumed: "Generate Dark Fiber Feasibility" creates a placeholder request; module not specified in any PDF.'},
+  G3:{t:'Direct Handoff path under-specified',where:'Off Net (End Customer & P2P) → Direct Handoff',
+      a:'Assumed: Direct Handoff skips Stage 4 (distances) and goes Stage 3 → Stage 5 acceptance; no vendor A/B address captured.'},
+  G4:{t:'"Reject with Selected POP" outcome undefined',where:'POP Feasibility → Stage 1',
+      a:'Assumed: rejecting closes the POP request and assigns the chosen existing POP back to the Job ID. Outcome not stated in PDF.'},
+  G5:{t:'No bandwidth threshold rule',where:'POP Feasibility → Stage 1 nearby-POP table',
+      a:'Capacity / Allocated / Utilized (Zabbix) are shown but no rule defines when Proceed vs Reject is mandatory.'},
+  G6:{t:'Duplicate / inconsistent stage numbers',where:'NLD (two "Stage 6"), On Net (two "Stage 5")',
+      a:'Renumbered logically in this demo. Confirm canonical numbering.'},
+  G7:{t:'Ambiguous "NLD Go-Live" gate',where:'POP Feasibility → Task module (NLD)',
+      a:'Assumed the gate = NLD "Go Live received from Telco" (now Stage 6). Task is blocked until then.'},
+  G8:{t:'Job ID "Tunnel DC + Submit" vs full Off Net flow overlap',where:'Job ID Off Net Broadband/Sim Card',
+      a:'Assumed the quick submit seeds the Off Net (End Customer) module which then runs vendor collection etc.'},
+  G9:{t:'No role / permission model',where:'All modules (BM, FE, Infra, Telco Coord, PR, Invoice)',
+      a:'Handoffs are shown as status changes only; no auth/role gating implemented.'},
+  G10:{t:'L2POI form only partially specified',where:'NLD / On Net Stage 2 (New L2/L1)',
+      a:'Rendered with Node Type / Address / Lat / Long as given; deeper L2POI fields unknown.'},
+  G11:{t:'Material Request ↔ PR pipeline order unclear',where:'POP Feasibility Stage 6 → PR',
+      a:'Assumed Material Request (Stage 6) hands off into the PR pipeline (PR Stage 1).'}
+};
+function gapFlag(id){
+  const g=GAPS[id];
+  return `<span class="gap" title="${(g.t+' — '+g.a).replace(/"/g,'&quot;')}">⚠ ${id}</span>`;
+}
+function gapNote(id){
+  const g=GAPS[id];
+  return `<div class="gapnote">${gapFlag(id)} <b>${g.t}.</b> ${g.a}</div>`;
+}
+
+/* ============================================================================
+   FIELD ENGINE
+   A field: {type,key,label,hint,options,required,showIf,note,gap,sub,read,colspan}
+   types: text,num,date,select,radio,textarea,file,checks,info,repeater,custom
+   showIf(v,state) decides visibility. Re-renders stage on every change.
+   ============================================================================ */
+function field(mod,stage,f){
+  const v=vstore(mod,stage);
+  const id=mod+'_'+stage+'_'+f.key;
+  const lab=`<label for="${id}">${f.required?'<span class="req">*</span> ':''}${f.label}${f.gap?' '+gapFlag(f.gap):''}${f.hint?` <span class="hint">${f.hint}</span>`:''}</label>`;
+  let ctrl='';
+  const val=v[f.key];
+  switch(f.type){
+    case 'info':
+      return `<div class="f ${f.colspan?'full':''}"><div class="info ${f.read?'read':''}">${f.label}</div></div>`;
+    case 'text': case 'num': case 'date':
+      ctrl=`<input id="${id}" type="${f.type==='num'?'number':f.type==='date'?'date':'text'}" value="${val??''}" placeholder="${f.ph||''}"
+              oninput="onField('${mod}','${stage}','${f.key}',this.value)">`;
+      break;
+    case 'textarea':
+      ctrl=`<textarea id="${id}" placeholder="${f.ph||''}" oninput="onField('${mod}','${stage}','${f.key}',this.value)">${val??''}</textarea>`;
+      break;
+    case 'select':
+      ctrl=`<select id="${id}" onchange="onField('${mod}','${stage}','${f.key}',this.value)">
+              <option value="">— select —</option>
+              ${f.options.map(o=>`<option ${val===o?'selected':''}>${o}</option>`).join('')}
+            </select>`;
+      break;
+    case 'radio':
+      ctrl=`<div class="radios">${f.options.map(o=>`
+              <label class="opt ${val===o?'sel':''}"><input type="radio" name="${id}" ${val===o?'checked':''}
+                onchange="onField('${mod}','${stage}','${f.key}','${o}')">${o}</label>`).join('')}</div>`;
+      break;
+    case 'checks':
+      const arr=Array.isArray(val)?val:[];
+      ctrl=`<div class="checks">${f.options.map(o=>`
+              <label class="opt ${arr.includes(o)?'sel':''}"><input type="checkbox" ${arr.includes(o)?'checked':''}
+                onchange="onCheck('${mod}','${stage}','${f.key}','${o}',this.checked)">${o}</label>`).join('')}</div>`;
+      break;
+    case 'file':
+      ctrl=`<input id="${id}" type="text" class="fileinp" value="${val??''}" placeholder="📎 type file name(s)${f.multi?' — comma separated':''}"
+              oninput="onField('${mod}','${stage}','${f.key}',this.value)">`;
+      return `<div class="f ${f.colspan?'full':''}"><label>${f.label}${f.multi?' <span class="hint">(multiple)</span>':''}</label>${ctrl}</div>`;
+    case 'repeater':
+      return repeater(mod,stage,f);
+  }
+  const note=f.note?`<div class="hint" style="margin-top:2px">${f.note}</div>`:'';
+  return `<div class="f ${f.colspan?'full':''}">${lab}${ctrl}${note}</div>`;
+}
+
+/* repeater: (+) add multiple sub-records */
+function repeater(mod,stage,f){
+  const v=vstore(mod,stage); const list=(v[f.key] ||= [{}]);
+  const inner=list.map((row,i)=>{
+    const sub=f.sub.map(sf=>{
+      const sid=mod+'_'+stage+'_'+f.key+'_'+i+'_'+sf.key;
+      let c='';
+      if(sf.type==='select'){
+        c=`<select id="${sid}" onchange="onRep('${mod}','${stage}','${f.key}',${i},'${sf.key}',this.value)">
+             <option value="">— select —</option>${sf.options.map(o=>`<option ${row[sf.key]===o?'selected':''}>${o}</option>`).join('')}</select>`;
+      } else if(sf.type==='textarea'){
+        c=`<textarea id="${sid}" oninput="onRep('${mod}','${stage}','${f.key}',${i},'${sf.key}',this.value)">${row[sf.key]??''}</textarea>`;
+      } else if(sf.type==='file'){
+        c=`<input id="${sid}" type="text" class="fileinp" value="${row[sf.key]??''}" placeholder="📎 type file name(s)"
+             oninput="onRep('${mod}','${stage}','${f.key}',${i},'${sf.key}',this.value)">`;
+      } else {
+        c=`<input id="${sid}" type="${sf.type==='num'?'number':sf.type==='date'?'date':'text'}" value="${row[sf.key]??''}"
+             oninput="onRep('${mod}','${stage}','${f.key}',${i},'${sf.key}',this.value)">`;
+      }
+      const show = sf.showIf? sf.showIf(row,S):true;
+      if(!show) return '';
+      return `<div class="f ${sf.colspan?'full':''}"><label>${sf.label}${sf.gap?' '+gapFlag(sf.gap):''}</label>${c}</div>`;
+    }).join('');
+    return `<div class="rep">
+        <div class="ridx">${f.itemLabel||'Item'} ${i+1}</div>
+        ${list.length>1?`<button class="btn sm ghost rmv" onclick="repDel('${mod}','${stage}','${f.key}',${i})">✕ remove</button>`:''}
+        <div class="grid">${sub}</div>
+      </div>`;
+  }).join('');
+  return `<div class="f full">
+      <label>${f.label}${f.gap?' '+gapFlag(f.gap):''}</label>
+      ${inner}
+      <div><button class="btn sm" onclick="repAdd('${mod}','${stage}','${f.key}')">＋ add ${f.itemLabel||'item'}</button></div>
+    </div>`;
+}
+
+/* field event handlers */
+function onField(mod,stage,key,val){ setv(mod,stage,key,val); rerender(); }
+function onCheck(mod,stage,key,opt,on){
+  const v=vstore(mod,stage); const a=Array.isArray(v[key])?v[key]:[];
+  v[key]= on? [...a,opt] : a.filter(x=>x!==opt); rerender();
+}
+function onRep(mod,stage,key,i,sk,val){ vstore(mod,stage)[key][i][sk]=val; rerender(); }
+function repAdd(mod,stage,key){ vstore(mod,stage)[key].push({}); rerender(); }
+function repDel(mod,stage,key,i){ const l=vstore(mod,stage)[key]; l.splice(i,1); if(!l.length)l.push({}); rerender(); }
+
+/* ============================================================================
+   MODULE DEFINITIONS
+   Each module: {title, sub, icon, stages:[{id,title,desc,gate,fields,actions}]}
+   gate(state) -> {ok:bool, why:string}  (controls whether stage is enabled)
+   fields can be functions of (v,state) returning an array (for full conditional control)
+   actions: [{label,cls,onClick,enabled}]
+   ============================================================================ */
+const MODULES = {
+
+/* ---------------- 1. JOB ID LIST ---------------- */
+jobid:{ title:'Job ID List', sub:'Entry decision tree — drives the whole workflow', icon:'📋',
+  stages:[{
+    id:'s1', title:'Job ID', desc:'Last-mile selection & POP decision',
+    fields:(v)=>{
+      let F=[
+        {type:'text',key:'jobid',label:'Job ID',ph:'JOB-2026-0001'},
+        {type:'text',key:'cust',label:'Customer name'},
+        {type:'radio',key:'lmtype',label:'Last Mile Type',options:['On Net','Off Net'],required:true},
+      ];
+      /* ===== ON NET ===== */
+      if(v.lmtype==='On Net'){
+        F.push({type:'radio',key:'media',label:'Media Type',options:['Wireless','Wireline']});
+        if(v.media==='Wireless'){
+          F.push({type:'radio',key:'wlPop',label:'POP Availability',options:['Yes','No']});
+          if(v.wlPop==='No'){
+            F.push({type:'textarea',key:'wlReason',label:'Reason for Creation',colspan:true,note:'On submit → raises POP Feasibility.'});
+          } else if(v.wlPop==='Yes'){
+            F.push({type:'select',key:'wlSelPop',label:'Select POP',options:popList()});
+          }
+        }
+        if(v.media==='Wireline'){
+          F.push({type:'radio',key:'wlnType',label:'Last Mile',options:['Linear+RF','Linear','Ring']});
+          if(v.wlnType==='Linear+RF'){
+            F.push({type:'radio',key:'lrPop',label:'POP Availability',options:['Yes','No']});
+            if(v.lrPop==='No') F.push({type:'textarea',key:'lrReason',label:'Reason for Creation',colspan:true,note:'On submit → raises POP Feasibility.'});
+            if(v.lrPop==='Yes') F.push({type:'select',key:'lrSelPop',label:'Select POP',options:popList()});
+          }
+          if(v.wlnType==='Linear'){
+            F.push({type:'radio',key:'linPop',label:'POP Availability',options:['Yes','No']});
+            if(v.linPop==='No') F.push({type:'textarea',key:'linReason',label:'Reason for Creation',colspan:true,note:'On submit → raises POP Feasibility.'});
+            if(v.linPop==='Yes') F.push({type:'select',key:'linSelPop',label:'Select POP',options:popList()});
+          }
+          if(v.wlnType==='Ring'){
+            F.push({type:'radio',key:'ringType',label:'Ring Type',options:['Dark Fiber Ring','Last Mile Ring from POP']});
+            if(v.ringType==='Dark Fiber Ring'){
+              F.push({type:'info',label:'⚙ On submit → Generate Dark Fiber Feasibility '+'(see gap G2).',colspan:true,gap:'G2'});
+            }
+            if(v.ringType==='Last Mile Ring from POP'){
+              F.push({type:'radio',key:'rmPop',label:'POP Availability',options:['Yes','No']});
+              if(v.rmPop==='No') F.push({type:'textarea',key:'rmReason',label:'Reason for Creation',colspan:true,note:'On submit → raises POP Feasibility.'});
+              if(v.rmPop==='Yes') F.push({type:'select',key:'rmSelPop',label:'Select POP',options:popList()});
+            }
+          }
+        }
+      }
+      /* ===== OFF NET ===== */
+      if(v.lmtype==='Off Net'){
+        F.push({type:'radio',key:'offType',label:'Type',options:['Broadband','Sim Card','Dark Fiber']});
+        if(v.offType==='Broadband'||v.offType==='Sim Card'){
+          F.push({type:'select',key:'tunnelDC',label:'Tunnel DC',hint:'(Dropdown of DC with Code)',options:['DC-AMD-01','DC-MUM-02','DC-DEL-03']});
+          if(v.offType==='Sim Card') F.push({type:'info',label:'⚠ Sim Card has no dedicated module in the PDFs — assumed to seed the Off Net (End Customer) flow.',colspan:true,gap:'G1'});
+          else F.push({type:'info',label:'On submit → seeds Off Net (End Customer) Broadband flow.',colspan:true,gap:'G8'});
+        }
+        if(v.offType==='Dark Fiber'){
+          F.push({type:'radio',key:'dfType',label:'Type',options:['Ring','Linear']});
+          F.push({type:'radio',key:'dfPop',label:'POP Availability',options:['Yes','No']});
+          if(v.dfPop==='No') F.push({type:'textarea',key:'dfReason',label:'Reason for Creation',colspan:true,note:'On submit → raises POP Feasibility, then Off Net (End Customer) Dark Fiber.'});
+          if(v.dfPop==='Yes') F.push({type:'select',key:'dfSelPop',label:'Select POP',options:popList()});
+        }
+      }
+      return F;
+    },
+    actions:(v)=>[ {label:'Submit Job ID', cls:'pri', enabled:!!v.lmtype, onClick:'submitJobId()'} ]
+  }]
+},
+
+/* ---------------- 2. POP FEASIBILITY ---------------- */
+pop:{ title:'POP Feasibility', sub:'The hub — 6 stages + Juggle + PR pipeline', icon:'📡',
+  stages:[
+   {id:'s1', title:'Stage 1 — Job ID details', desc:'Nearby POP + Proceed/Reject + Backhaul type',
+    fields:(v)=>{
+      let F=[
+        {type:'text',key:'jobid',label:'Job ID'},{type:'text',key:'cust',label:'Customer name'},
+        {type:'text',key:'circuit',label:'Circuit name'},{type:'text',key:'addr',label:'Customer address'},
+        {type:'text',key:'product',label:'Product'},{type:'text',key:'bw',label:'Bandwidth'},
+        {type:'text',key:'lat',label:'Lat'},{type:'text',key:'long',label:'Long'},
+        {type:'custom',key:'nearbyTbl',label:'',render:nearbyPopTable,colspan:true},
+        {type:'radio',key:'decision',label:'Decision',options:['Proceed to POP Creation','Reject with Selected POP'],colspan:true,gap:'G5'},
+      ];
+      if(v.decision==='Reject with Selected POP'){
+        F.push({type:'select',key:'rejPop',label:'Selected existing POP',options:popList()});
+        F.push({type:'textarea',key:'rejNote',label:'Rejection note (modal)',colspan:true,gap:'G4'});
+      }
+      if(v.decision==='Proceed to POP Creation'){
+        F.push({type:'radio',key:'backhaul',label:'Backhaul Type',options:['On Net','NLD','Off Net'],colspan:true});
+        if(v.backhaul==='NLD') F.push({type:'info',label:'→ NLD/Backhaul draft request appears immediately (after Stage 1).',colspan:true});
+        if(v.backhaul==='On Net'||v.backhaul==='Off Net') F.push({type:'info',label:'→ '+v.backhaul+' request initiates AFTER Stage 3 (once POP code generated).',colspan:true});
+      }
+      return F;
+    },
+    actions:(v)=>[
+      {label: v.decision==='Reject with Selected POP'?'Reject & assign POP':'Submit Stage 1',
+       cls:'pri', enabled:!!v.decision && (v.decision==='Reject with Selected POP'||!!v.backhaul),
+       onClick:'submitPopS1()'}
+    ]},
+
+   {id:'s2', title:'Stage 2 — Feasibility & site survey', desc:'Infra Provider / Own Infra + survey task',
+    gate:()=>S.flags.popStage1Done?{ok:true}:{ok:false,why:'Complete Stage 1 (Proceed to POP Creation) first.'},
+    fields:(v)=>{
+      let F=[
+        {type:'radio',key:'popType',label:'POP Type',options:['Infra Provider','Own Infra']},
+        {type:'text',key:'popName',label:'Site ID/Building Name'},
+        {type:'text',key:'addr',label:'Address'},{type:'text',key:'lat',label:'Lat'},{type:'text',key:'long',label:'Long'},
+      ];
+      if(v.popType==='Infra Provider'){
+        F.push({type:'select',key:'infraVendor',label:'Infra Provider',hint:'(appears only for Infra Provider)',options:['Indus Towers','ATC','Summit Digitel','GTL']});
+      }
+      F.push({type:'checks',key:'fchecks',label:'Feasibility checks',options:['Technically feasible','Infra feasible'],colspan:true});
+      F.push({type:'checks',key:'survey',label:'Site survey',options:['Site survey required'],colspan:true,note:'If checked → creates a Juggle task (selected location).'});
+      return F;
+    },
+    actions:(v)=>[
+      {label: (v.survey||[]).includes('Site survey required')?'Create Juggle task':'Proceed to Stage 3',
+       cls:'pri', enabled:!!v.popType, onClick:'submitPopS2()'}
+    ]},
+
+   {id:'juggle', title:'Juggle — Stage 1 (BM / Field Engineer)', desc:'On-site survey; fields differ by POP Type',
+    gate:()=> getv('pop','s2','popType')?{ok:true}:{ok:false,why:'Set POP Type in Stage 2 first.'},
+    fields:()=>{
+      const pt=getv('pop','s2','popType');
+      // fetch Site ID/Building Name from Stage 2 once; remains editable here
+      const jv=vstore('pop','juggle');
+      if(jv.siteId===undefined){ const s2=getv('pop','s2','popName'); if(s2) jv.siteId=s2; }
+      let F=[
+        {type:'text',key:'plat',label:'POP latitude',hint:'(from Stage 1; correctable on-site)'},
+        {type:'text',key:'plong',label:'POP longitude',hint:'(from Stage 1; correctable on-site)'},
+      ];
+      if(pt==='Infra Provider'){
+        F.push({type:'info',label:'Site information for Infra Provider',colspan:true});
+        F.push({type:'radio',key:'bts',label:'BTS type',options:['GBT','RTT']});
+        const v=vstore('pop','juggle');
+        if(v.bts==='GBT') F.push({type:'text',key:'gbtH',label:'GBT tower height'});
+        if(v.bts==='RTT'){F.push({type:'text',key:'bH',label:'Building height'});F.push({type:'text',key:'tH',label:'Tower height'});}
+        F.push({type:'radio',key:'rack',label:'Rack type',options:['Indoor','Outdoor']});
+        F.push({type:'radio',key:'ac',label:'AC availability',options:['Yes','No']});
+        F.push({type:'radio',key:'pwr',label:'Power source',options:['AC','DC']});
+        F.push({type:'radio',key:'phase',label:'Phase',options:['Single','Three']});
+        F.push({type:'text',key:'pprov',label:'Power provider'});
+        F.push({type:'text',key:'techN',label:'Technician name'});F.push({type:'text',key:'techNo',label:'Technician number'});
+        F.push({type:'file',key:'att',label:'Attachments',multi:true,colspan:true});
+        F.push({type:'radio',key:'fstat',label:'Feasibility status',options:['Feasible','Non Feasible']});
+        F.push({type:'textarea',key:'frem',label:'Feasibility remarks',colspan:true});
+        F.push({type:'text',key:'siteId',label:'Site ID/Building Name',hint:'(fetched from Stage 2 · editable)'});
+      } else if(pt==='Own Infra'){
+        F.push({type:'info',label:'Site information for Own Infra',colspan:true});
+        F.push({type:'radio',key:'otype',label:'POP type',options:['GBT','RTT','Pole']});
+        const v=vstore('pop','juggle');
+        if(v.otype==='GBT'){F.push({type:'text',key:'gbtH',label:'GBT tower height'});F.push({type:'radio',key:'tperm',label:'Tower Installation Permission',options:['Yes','No']});}
+        if(v.otype==='RTT'){F.push({type:'text',key:'bH',label:'Building height'});F.push({type:'text',key:'tH',label:'Tower height'});F.push({type:'radio',key:'tperm',label:'Tower Installation Permission',options:['Yes','No']});}
+        if(v.otype==='Pole'){F.push({type:'text',key:'poleH',label:'Pole height'});F.push({type:'select',key:'poleC',label:'Pole counts',options:['1','2','3','4','5']});F.push({type:'radio',key:'pperm',label:'Pole Installation Permission',options:['Yes','No']});}
+        F.push({type:'radio',key:'rackPerm',label:'Rack Installation Permission',options:['Indoor','Outdoor','Indoor with Battery Stand','Outdoor with Battery Stand'],colspan:true});
+        F.push({type:'select',key:'rackSize',label:'Rack Size',options:Array.from({length:42},(_,i)=>(i+1)+'U')});
+        F.push({type:'radio',key:'phase',label:'Phase',options:['Single','Three']});
+        F.push({type:'text',key:'pprov',label:'Power provider'});
+        F.push({type:'text',key:'spocN',label:'Local SPOC Name'});F.push({type:'text',key:'spocNo',label:'Local SPOC Number'});
+        F.push({type:'file',key:'att',label:'Attachments',multi:true,colspan:true});
+        F.push({type:'radio',key:'fstat',label:'Feasibility status',options:['Feasible','Non Feasible']});
+        F.push({type:'textarea',key:'frem',label:'Feasibility remarks',colspan:true});
+      }
+      return F;
+    },
+    actions:()=>[{label:'Submit Juggle Stage 1',cls:'pri',enabled:true,onClick:'submitJuggle()'}]},
+
+   {id:'s3', title:'Stage 3 — POP Code generation', desc:'After Juggle → generate POP code (unlocks On Net / Off Net)',
+    gate:()=>S.flags.popStage1Done?{ok:true}:{ok:false,why:'Complete Stage 1 first.'},
+    fields:()=>{
+      let F=[{type:'info',label:'Fetched from Juggle: POP Type, Infra Provider, Technician, Site ID, POP Name, U-Space, Address, Lat/Long.',read:true,colspan:true}];
+      if(S.flags.popCode){
+        F.push({type:'info',label:'✅ POP Code generated: <b>'+S.flags.popCode+'</b> &nbsp; format POP-YYYY-seq5',colspan:true});
+        F.push({type:'info',label:'Connected NLD/Backhaul: '+connectedBackhaulSummary(),colspan:true,read:true});
+      } else {
+        F.push({type:'info',label:'POP Code: (auto-generated on completion) — POP-YYYY-seq5',read:true,colspan:true});
+      }
+      if(getv('pop','s2','popType')==='Infra Provider') F.push({type:'text',key:'siteId',label:'Site ID'});
+      return F;
+    },
+    actions:()=>[{label:S.flags.popCode?'POP Code generated ✓':'Complete Stage 3 → generate POP Code',cls:'pri',enabled:!S.flags.popCode,onClick:'genPopCode()'}]},
+
+   {id:'s4', title:'Stage 4 — PO / Agreement', desc:'Infra Provider PO vs Own agreement; + NLD/On Net approve-revalidate',
+    gate:()=>S.flags.popStage3Done?{ok:true}:{ok:false,why:'Generate POP Code in Stage 3 first.'},
+    fields:()=>{
+      const pt=getv('pop','s2','popType'); const v=vstore('pop','s4');
+      let F=[];
+      F.push({type:'info',label:(pt==='Own Infra'?'POP for Agreement (Own)':'PO for Infra Provider')+' — POP Code / Type / Provider / Name / Address / Lat / Long / Status (fetched).',read:true,colspan:true});
+      F.push({type:'radio',key:'poReq',label:'PO Required',options:['Yes','No']});
+      F.push({type:'textarea',key:'remarks',label:'Remarks',colspan:true});
+      if(pt==='Infra Provider'){
+        F.push({type:'file',key:'po',label:'PO attachment',colspan:true});
+        F.push({type:'text',key:'arc',label:'ARC'});F.push({type:'text',key:'otc',label:'OTC'});F.push({type:'text',key:'paycycle',label:'Payment cycle'});
+        F.push({type:'info',label:'Item-level: Manufacturer / Height / Model / Images (Front,Rear).',read:true,colspan:true});
+      } else {
+        F.push({type:'text',key:'owner',label:'Building Society Owner'});
+        F.push({type:'info',label:'Location/tenant: Region / Tenant group / Tenant / Country / State / District / City / Area.',read:true,colspan:true});
+        F.push({type:'text',key:'spocN',label:'Local SPOC Name'});F.push({type:'text',key:'spocNo',label:'Local SPOC Number'});
+        F.push({type:'text',key:'chairN',label:'Chairman/Landlord Name'});F.push({type:'text',key:'chairNo',label:'Chairman/Landlord Number'});
+      }
+      /* approve / revalidate inbox from NLD / On Net installation */
+      const inbox=S.requests.filter(r=>(r.module==='nld'||r.module==='onnet')&&r.status==='Awaiting POP S4 approval');
+      if(inbox.length){
+        F.push({type:'info',label:'⬇ Installation (Juggle-1) details received for approval: '+inbox.map(r=>r.id).join(', '),colspan:true});
+      }
+      return F;
+    },
+    actions:()=>{
+      const inbox=S.requests.filter(r=>(r.module==='nld'||r.module==='onnet')&&r.status==='Awaiting POP S4 approval');
+      const a=[{label:'Submit Stage 4 → proceed to Stage 5',cls:'pri',enabled:true,onClick:'toast(\'Stage 4 submitted — proceed to Stage 5\')'}];
+      if(inbox.length){a.push({label:'Approve installation',cls:'',enabled:true,onClick:'approveInstall()'});
+                       a.push({label:'Revalidate (back to FE)',cls:'ghost',enabled:true,onClick:'revalidateInstall()'});}
+      return a;
+    }},
+
+   {id:'s4b', title:'Stage 5 — Technician / Mounting / Power details', desc:'Installation team, mounting & power load → New Activation Pending',
+    gate:()=>S.flags.popStage3Done?{ok:true}:{ok:false,why:'Generate POP Code in Stage 3 first.'},
+    fields:()=>{
+      const pt=getv('pop','s2','popType');
+      let F=[];
+      if(pt==='Infra Provider'){
+        F.push({type:'text',key:'refno',label:'Reference Number'});F.push({type:'text',key:'rackSpace',label:'Rack Space'});
+        F.push({type:'num',key:'ubr',label:'UBR Mounting Permission'});
+        F.push({type:'text',key:'techN',label:'Technician Name'});F.push({type:'text',key:'techNo',label:'Technician Number'});
+        F.push({type:'text',key:'supN',label:'Supervisor Name'});F.push({type:'text',key:'supNo',label:'Supervisor Number'});
+      }
+      F.push({type:'text',key:'pwrLoad',label:'Power Load'});
+      F.push({type:'info',label:'After Stage 5 → New Activation Pending. Line ID: '+(pt==='Own Infra'?'POP-YYYY-seq5-OWN-RCK-Uspace':'POP-YYYY-seq5-infra4digit-RCK-Uspace'),read:true,colspan:true});
+      return F;
+    },
+    actions:()=>[{label:'Submit Stage 5 → New Activation Pending',cls:'pri',enabled:true,onClick:'submitPopS4()'}]},
+
+   {id:'s5', title:'Stage 6 — Agreement (conditional)', desc:'Enabled only when POP is Own Infra',
+    gate:()=> getv('pop','s2','popType')==='Own Infra' ? {ok:true} : {ok:false,why:'Conditional stage — only enabled when POP Type = Own Infra.'},
+    fields:()=>[{type:'file',key:'agree',label:'Agreement Attachment',multi:true,colspan:true},{type:'date',key:'agreeDate',label:'Agreement Date'}],
+    actions:()=>[{label:'Submit Agreement',cls:'pri',enabled:true,onClick:'toast(\'Agreement saved\')'}]},
+
+   {id:'s6', title:'Stage 7 — Material Request', desc:'Hands off into the PR pipeline',
+    gate:()=>S.flags.popStage3Done?{ok:true}:{ok:false,why:'Available after POP code generated.'},
+    fields:()=>[{type:'info',label:'Material Request button — on submit, hands off to the Provisioning Request (PR) pipeline. '+gapFlag('G11'),colspan:true}],
+    actions:()=>[{label:'Raise Material Request → PR',cls:'pri',enabled:true,onClick:'toast(\'Material Request raised → PR pipeline\')'}]},
+
+   {id:'pr1', title:'PR Stage 1 — Rack & Power Feed (NetBox)', desc:'NetBox rack + power feed forms',
+    fields:()=>[
+      {type:'info',label:'<b>Rack form (NetBox)</b> — mandatory: Site, Name, Status, Width, Starting Unit, Height (U).',colspan:true},
+      {type:'select',key:'site',label:'Site',required:true,options:['DC-AMD-01','POP-2026-00012']},
+      {type:'text',key:'rname',label:'Name',required:true},
+      {type:'select',key:'status',label:'Status',required:true,options:['Active','Planned','Offline']},
+      {type:'text',key:'width',label:'Width',required:true,ph:'19 inches'},
+      {type:'num',key:'startU',label:'Starting Unit',required:true},
+      {type:'num',key:'heightU',label:'Height (U)',required:true},
+      {type:'info',label:'<b>Power Feed form (NetBox)</b> — mandatory: Power Panel, Name, Status, Type, Supply, Voltage, Amperage, Phase, Max Utilization.',colspan:true},
+      {type:'text',key:'ppanel',label:'Power Panel',required:true},
+      {type:'select',key:'fsupply',label:'Supply',required:true,options:['AC','DC']},
+      {type:'text',key:'voltage',label:'Voltage',required:true},
+      {type:'text',key:'amp',label:'Amperage',required:true},
+      {type:'radio',key:'fphase',label:'Phase',required:true,options:['Single','Three']},
+      {type:'num',key:'maxutil',label:'Max Utilization (%)',required:true},
+    ],
+    actions:()=>[{label:'Create Rack & Power Feed',cls:'pri',enabled:true,onClick:'toast(\'Rack + Power Feed created in NetBox\')'}]},
+
+   {id:'pr2', title:'PR Stage 2 — Active device (B End)', desc:'Device + port mapping; conditional on backhaul type',
+    fields:()=>{
+      const v=vstore('pop','pr2');
+      let F=[
+        {type:'text',key:'dname',label:'Device name',hint:'(editable)'},
+        {type:'radio',key:'drole',label:'Device type',options:['Switch','Router']},
+        {type:'text',key:'serial',label:'Serial number'},{type:'text',key:'asset',label:'Asset tag'},
+      ];
+      if(v.drole==='Switch'){F.push({type:'text',key:'ip',label:'IP address'});F.push({type:'text',key:'mvlan',label:'Management VLAN'});}
+      if(v.drole==='Router'){F.push({type:'text',key:'ip',label:'IP address'});F.push({type:'text',key:'loop',label:'Loopback'});F.push({type:'text',key:'lan',label:'LAN IP'});F.push({type:'select',key:'mvlan',label:'Management VLAN',options:['VLAN-100','VLAN-200']});}
+      F.push({type:'select',key:'bktype',label:'Backhaul case (port mapping)',colspan:true,
+              options:['NLD Backhaul','On Net RF Backhaul','On Net Fiber Backhaul','Off Net Fiber Backhaul']});
+      const bk=v.bktype;
+      if(bk){
+        const rf = bk==='On Net RF Backhaul';
+        F.push({type:'text',key:'aport',label:'A End Device Port'});
+        F.push({type:'text',key:'aip',label:'A End Device IP Address'});
+        if(rf) F.push({type:'text',key:'arf',label:'A End RF IP Address'});
+        F.push({type:'text',key:'bport',label:'B End Device Port'});
+        F.push({type:'text',key:'bip',label:'B End Device IP Address'});
+        if(rf) F.push({type:'text',key:'brf',label:'B End RF IP Address'});
+        F.push({type:'text',key:'avlan',label:'A End VLAN'});
+        F.push({type:'text',key:'bvlan',label:'B End VLAN'});
+      }
+      F.push({type:'text',key:'rackUtil',label:'Rack Utilization'});
+      F.push({type:'text',key:'feedUtil',label:'Power Feed Utilization'});
+      F.push({type:'info',label:'For On Net case → Last Mile Deployment Stage 1 is enabled to proceed.',read:true,colspan:true});
+      return F;
+    },
+    actions:()=>[{label:'Save device & port mapping',cls:'pri',enabled:true,onClick:'toast(\'PR Stage 2 saved\')'}]},
+
+   {id:'pr3', title:'PR Stage 3 — Cables', desc:'A-side / B-side / cable details (NetBox)',
+    fields:()=>[
+      {type:'select',key:'aType',label:'A Side Type',required:true,options:['Interface','Front Port','Rear Port']},
+      {type:'select',key:'bType',label:'B Side Type',required:true,options:['Interface','Front Port','Rear Port']},
+      {type:'select',key:'status',label:'Status',required:true,options:['Connected','Planned']},
+      {type:'select',key:'ctype',label:'Cable Type',required:true,options:['SMF','MMF','CAT6','DAC']},
+      {type:'text',key:'label',label:'Label'},{type:'text',key:'color',label:'Color (HEX)'},
+      {type:'text',key:'len',label:'Length'},{type:'select',key:'lenU',label:'Length Unit',options:['Meter','Feet']},
+    ],
+    actions:()=>[{label:'Create cable',cls:'pri',enabled:true,onClick:'toast(\'Cable created\')'}]},
+
+   {id:'lmd1', title:'Last Mile Deployment — Stage 1 (On Net only)', desc:'Wireless: device / interface / IP / VLAN / engineer',
+    gate:()=> getv('pop','s1','backhaul')==='On Net'?{ok:true}:{ok:false,why:'Last Mile Deployment is for On Net link only.'},
+    fields:()=>{
+      const v=vstore('pop','lmd1');
+      let F=[{type:'radio',key:'media',label:'Link media',options:['Wireless','Wireline']}];
+      if(v.media==='Wireless'){
+        F.push({type:'select',key:'aDev',label:'A End Device',hint:'(A End device details dropdown)',options:['DEV-A1','DEV-A2']});
+        F.push({type:'text',key:'aIf',label:'A End Interface'});
+        F.push({type:'select',key:'aIp',label:'A End IP',hint:'(from NetBox)',options:['10.0.0.1','10.0.0.2']});
+        F.push({type:'select',key:'bDev',label:'B End Device',options:['DEV-B1','DEV-B2']});
+        F.push({type:'text',key:'bIf',label:'B End Interface'});
+        F.push({type:'select',key:'bIp',label:'B End IP',hint:'(from NetBox)',options:['10.0.1.1','10.0.1.2']});
+        F.push({type:'select',key:'mvlan',label:'Management VLAN',hint:'(from NetBox)',options:['VLAN-100','VLAN-200']});
+        F.push({type:'text',key:'eng',label:'Assign Engineer'});
+      } else if(v.media==='Wireline'){
+        F.push({type:'info',label:'Wireline — proceed to the Task module to create the installation task.',read:true,colspan:true});
+      }
+      return F;
+    },
+    actions:()=>[{label:'Submit → Task module',cls:'pri',enabled:true,onClick:'toast(\'LM Deployment Stage 1 saved → Task module\')'}]},
+
+   {id:'lmtask', title:'Task module — Juggle (FE on-site)', desc:'Create installation task → assign BM → FE → BM approval',
+    fields:()=>{
+      const bk=getv('pop','s1','backhaul');
+      const media=getv('pop','lmd1','media');
+      let F=[];
+      // link-type specific task header
+      if(bk==='NLD'){
+        F.push({type:'info',label:'[Task for NLD Link] NLD Stage 6 (Go-Live) details must appear before the task can be created '+gapFlag('G7')+'. Show passive material (PR Stage 2) + active material details.',read:true,colspan:true});
+      } else if(bk==='On Net'){
+        F.push({type:'info',label:'[Task for On Net Link] '+(media==='Wireless'?'Wireless — create TWO tasks (A End POP &amp; B End POP) with same details. Show GIS snap from On Net.':(media==='Wireline'?'Wireline installation task.':'Select Link media in LMD Stage 1.')),read:true,colspan:true});
+      } else if(bk==='Off Net'){
+        F.push({type:'info',label:'[Task for Off Net Link — Chamber Handoff only] Create TWO tasks (A End POP &amp; B End POP).',read:true,colspan:true});
+      } else {
+        F.push({type:'info',label:'Task content depends on the Backhaul Type chosen in Stage 1.',read:true,colspan:true});
+      }
+      // FE fills on-site (the Juggle) — common checklist
+      F.push({type:'info',label:'<b>FE fills below on-site (Juggle):</b>',read:true,colspan:true});
+      F.push({type:'checks',key:'pwr',label:'Power source',options:['AC','DC','Critical','Non-critical','UPS backup'],colspan:true});
+      F.push({type:'radio',key:'cable',label:'Cable dressing quality',options:['Yes','No']});
+      F.push({type:'radio',key:'sec',label:'Physical security',options:['Yes','No']});
+      F.push({type:'radio',key:'water',label:'Water logging risk',options:['Yes','No']});
+      F.push({type:'radio',key:'air',label:'Air circulation',options:['Yes','No']});
+      F.push({type:'file',key:'snaps',label:'Snaps',multi:true,colspan:true});
+      // On Net Wireless juggle extras (per A/B End POP task)
+      if(bk==='On Net' && media==='Wireless'){
+        F.push({type:'info',label:'Task to Juggle (per A End / B End POP):',read:true,colspan:true});
+        F.push({type:'text',key:'rfDist',label:'RF Distance (m)'});
+        F.push({type:'file',key:'rfSnap',label:'RF Distance Snaps',multi:true});
+        F.push({type:'text',key:'signal',label:'Signal (-dbm)'});
+        F.push({type:'file',key:'sigSnap',label:'Signal Snaps',multi:true});
+        F.push({type:'text',key:'crStart',label:'Cable Reading — Start End (m)'});
+        F.push({type:'text',key:'crEnd',label:'Cable Reading — End End (m)'});
+        F.push({type:'file',key:'cableSnap',label:'Cable Snaps',multi:true,colspan:true});
+      }
+      // On Net Wireline / Off Net chamber handoff juggle extras
+      if((bk==='On Net' && media==='Wireline') || bk==='Off Net'){
+        F.push({type:'file',key:'instSnap',label:'Installation Snaps (+ signal-capture snaps)',multi:true,colspan:true});
+        F.push({type:'num',key:'fiber',label:'Fiber Length (KM)'});
+      }
+      F.push({type:'info',label:'After submit → BM approval → Infra team → PR/Provisioning team for logical configuration.',read:true,colspan:true});
+      return F;
+    },
+    actions:()=>[{label:'Create / Submit Task → BM approval',cls:'pri',enabled:true,onClick:'toast(\'Task submitted → BM approval → Infra → PR\')'}]},
+
+   {id:'lmd2', title:'Last Mile Deployment — Stage 2 (On Net only)', desc:'Wireless link validation snapshots',
+    gate:()=> getv('pop','s1','backhaul')==='On Net'?{ok:true}:{ok:false,why:'Last Mile Deployment is for On Net link only.'},
+    fields:()=>{
+      const media=getv('pop','lmd1','media');
+      if(media!=='Wireless') return [{type:'info',label:'Stage 2 detail applies to On Net Wireless (set Link media = Wireless in LMD Stage 1).',read:true,colspan:true}];
+      return [
+        {type:'file',key:'lmSnap',label:'LM Snapshots',multi:true,colspan:true},
+        {type:'text',key:'rfDist',label:'RF Distance (Km)'},{type:'file',key:'rfImg',label:'RF Distance Image'},
+        {type:'text',key:'signal',label:'Signal (km)'},{type:'file',key:'sigImg',label:'Signal Image'},
+        {type:'text',key:'thru',label:'Throughput'},
+        {type:'text',key:'rx',label:'Rx'},{type:'text',key:'tx',label:'Tx'},{type:'file',key:'rxtxImg',label:'Rx/Tx Image'},
+        {type:'file',key:'finalSnap',label:'Final Snapshots (whole link)',multi:true,colspan:true},
+        {type:'text',key:'ap',label:'LAN Negotiation — AP'},{type:'file',key:'apImg',label:'AP Image'},
+        {type:'text',key:'cpe',label:'LAN Negotiation — CPE'},{type:'file',key:'cpeImg',label:'CPE Image'},
+      ];
+    },
+    actions:()=>[{label:'Submit LM Stage 2',cls:'pri',enabled:true,onClick:'toast(\'LM Deployment Stage 2 saved\')'}]},
+
+   {id:'pr4', title:'PR Stage 4 — Provisioning', desc:'Provisioning capture + 3-day observation',
+    fields:()=>{
+      const v=vstore('pop','pr4');
+      let F=[
+        {type:'text',key:'popName',label:'POP name'},{type:'text',key:'loc',label:'Location'},
+        {type:'radio',key:'owner',label:'Backhaul owner',options:['On Net','NLD']},
+      ];
+      if(v.owner==='On Net') F.push({type:'radio',key:'onkind',label:'On Net kind',options:['Wireline','Wireless','End-to-end']});
+      if(v.owner==='NLD') F.push({type:'info',label:'TSP end-to-end details.',read:true,colspan:true});
+      F.push({type:'text',key:'aOrigin',label:'Origin A-end (interface/VLAN/IP)'});
+      F.push({type:'text',key:'bDest',label:'Destination B-end (interface/VLAN/IP)'});
+      F.push({type:'num',key:'bwcap',label:'Actual bandwidth capacity (Mbps)',hint:'(Wireless: throughput · Wireline: interface cap · NLD: NLD BW)'});
+      F.push({type:'file',key:'snaps',label:'Snapshots',multi:true,colspan:true});
+      F.push({type:'radio',key:'ring',label:'Ring connectivity',options:['Yes','No']});
+      if(v.ring==='Yes') F.push({type:'text',key:'ringDet',label:'Ring details (+ to add multiple)'});
+      F.push({type:'textarea',key:'remarks',label:'Remarks',colspan:true});
+      F.push({type:'info',label:'Buttons: Hold (park in Telco bucket) · Submit → Observation Period (min 3 days, daily remark + live timer).',read:true,colspan:true});
+      return F;
+    },
+    actions:()=>[{label:'Submit → Observation Period',cls:'pri',enabled:true,onClick:'toast(\'Observation period started (min 3 days)\')'},{label:'Hold',cls:'ghost',enabled:true,onClick:'toast(\'Held — parked in Telco bucket\')'}]},
+
+   {id:'s6final', title:'Stage 6 — Acceptance (after observation)', desc:'Acceptance → POP goes Active',
+    fields:()=>[
+      {type:'date',key:'accDate',label:'POP acceptance date'},
+      {type:'text',key:'bm',label:'Assigned Branch Manager'},
+      {type:'text',key:'fe',label:'Assigned Field Engineer'},
+      {type:'textarea',key:'access',label:'Access Permission',colspan:true},
+      {type:'info',label:'After completion → POP appears in the Active tab; all stage details visible on View.',read:true,colspan:true},
+    ],
+    actions:()=>[{label:'Accept → Activate POP',cls:'pri',enabled:true,onClick:'toast(\'POP activated 🎉\')'}]},
+  ]
+},
+
+/* ---------------- 3. NLD / BACKHAUL FEASIBILITY ---------------- */
+nld:{ title:'NLD / Backhaul Feasibility', sub:'Parallel to POP — draft appears right after POP Stage 1', icon:'🛰️',
+  stages:[
+   {id:'s1', title:'Stage 1 — Service', desc:'Bandwidth + IIL/P2P + ends',
+    fields:(v)=>{
+      let F=[
+        {type:'info',label:'Job ID & customer details (from POP Stage 1).',read:true,colspan:true},
+        {type:'num',key:'bw',label:'Require Bandwidth (Mbps)'},
+        {type:'radio',key:'svc',label:'Service Type',options:['IIL','P2P']},
+      ];
+      if(v.svc==='P2P'){
+        F.push({type:'select',key:'telco',label:'Telco',hint:'(+ add multiple)',options:['Vodafone','TTSL','Airtel','BSNL']});
+        F.push({type:'select',key:'aEnd',label:'A End (POP/DC — planned or completed)',options:popList(true)});
+        F.push({type:'text',key:'bAddr',label:'D End Address'});
+        F.push({type:'text',key:'bLat',label:'D End Lat'});F.push({type:'text',key:'bLong',label:'D End Long'});
+      }
+      return F;
+    },
+    actions:()=>[{label:'Submit Stage 1',cls:'pri',enabled:true,onClick:'toast(\'NLD Stage 1 saved\')'}]},
+
+   {id:'s2', title:'Stage 2 — BTS details (A/B ends)', desc:'Existing / New L2 / New L1; L2POI form',
+    fields:()=>[
+      {type:'repeater',key:'bts',label:'D End BTS details (+ add multiple)',itemLabel:'D End BTS',
+        sub:[
+          {key:'kind',type:'select',label:'A End BTS Details',options:['Existing','New L2','New L1']},
+          // Existing → pick existing POP/DC L2POI + its port & VLAN (fetched into Stage 5)
+          {key:'node',type:'select',label:'A End POP/DC Location',options:popList(true),showIf:r=>r.kind==='Existing'},
+          {key:'aPort',type:'text',label:'A End Port (existing L2POI)',showIf:r=>r.kind==='Existing'},
+          {key:'avlan',type:'select',label:'A End VLAN (existing L2POI)',options:['VLAN-100','VLAN-200','VLAN-300'],showIf:r=>r.kind==='Existing'},
+          // New L2 / New L1 → L2POI form
+          {key:'nodeType',type:'select',label:'Node Type',options:['POP','DC'],showIf:r=>r.kind&&r.kind!=='Existing',gap:'G10'},
+          {key:'aAddr',type:'text',label:'A End Address',showIf:r=>r.kind&&r.kind!=='Existing'},
+          {key:'aLat',type:'text',label:'A End Lat',showIf:r=>r.kind&&r.kind!=='Existing'},
+          {key:'aLong',type:'text',label:'A End Long',showIf:r=>r.kind&&r.kind!=='Existing'},
+          {key:'bAddr',type:'text',label:'D End Address'},
+          {key:'bLat',type:'text',label:'D End Lat'},{key:'bLong',type:'text',label:'D End Long'},
+          {key:'feas',type:'select',label:'Feasibility',options:['Feasible','Not Feasible','Information Awaited']},
+        ]},
+      {type:'info',label:'⚠ If L2 utilises full interface capacity, show warning (based on assigned NLD circuits). If "Information Awaited" → show Action button for future follow-up.',read:true,colspan:true},
+    ],
+    actions:()=>[{label:'Submit Stage 2',cls:'pri',enabled:true,onClick:'toast(\'NLD Stage 2 saved\')'}]},
+
+   {id:'s2b', title:'Stage 3 — D End BTS Selection & Topology', desc:'Select D End BTS · A/D End handoff (Direct / On Net / Off Net) · POP Feasibility Required',
+    fields:(v)=>{
+      const bts=getv('nld','s2','bts')||[];
+      const opts=bts.map((r,i)=>'D End '+(i+1)+': '+(r.bAddr||'(no address)')+(r.feas?' — '+r.feas:''));
+      let F=[
+        {type:'custom',key:'tbl',render:nldBEndTable,colspan:true},
+        {type:'radio',key:'selected',label:'Select one D End BTS',options:opts.length?opts:['(add D End BTS in Stage 2 first)'],colspan:true},
+      ];
+      // selected D End BTS row kind (A End BTS Details set in Stage 2)
+      let selKind=null;
+      if(v.selected){ const m=v.selected.match(/^D End (\d+):/); if(m){ const row=bts[parseInt(m[1],10)-1]; selKind=row&&row.kind; } }
+      // ---- A End (Origin Point) handoff ----
+      F.push({type:'info',label:'<b>A End (Origin Point) — handoff</b>',read:true,colspan:true});
+      F.push({type:'radio',key:'aHandoff',label:'A End Handoff Type',options:['Direct','On Net','Off Net'],colspan:true});
+      if(v.aHandoff==='On Net') F.push({type:'radio',key:'aOnNetType',label:'A End On Net Type',options:['Wireless','Wireline','Ring'],colspan:true});
+      if(v.aHandoff==='On Net' || v.aHandoff==='Off Net'){
+        // Parent Node (acts as the A-End) appears when the selected D End BTS is New L1 / New L2
+        if(selKind==='New L1' || selKind==='New L2')
+          F.push({type:'select',key:'aParentPop',label:'A End Parent Node',hint:'(acts as the A-End · New '+selKind+')',options:popList()});
+        F.push({type:'radio',key:'aStartStage',label:'Start A-End POP Feasibility from',options:['Stage 2','Stage 3'],colspan:true});
+        const rA=S.requests.some(r=>r.type==='nld-aend'&&r.module==='pop');
+        F.push({type:'info',label:'⚠ A End <b>'+v.aHandoff+'</b>: <b>Parent Node acts as the A-End</b>; the telco new A-End becomes a <b>new POP Feasibility (child)</b> + a new <b>'+v.aHandoff+'</b> request (existing flow). '+(rA?'<span class="tag live">Requests generated · NLD ref</span>':'Use the “Generate A-End requests” button below.'),colspan:true});
+      }
+      // ---- D End (Destination = actual Job requested) ----
+      F.push({type:'info',label:'<b>D End (Destination Point) — handoff</b>',read:true,colspan:true});
+      F.push({type:'radio',key:'dHandoff',label:'D End Handoff Type',options:['Direct','On Net','Off Net'],colspan:true});
+      if(v.dHandoff==='On Net') F.push({type:'radio',key:'dOnNetType',label:'D End On Net Type',options:['Wireless','Wireline','Ring'],colspan:true});
+      if(v.dHandoff==='On Net' || v.dHandoff==='Off Net'){
+        F.push({type:'radio',key:'dStartStage',label:'Start D-End POP Feasibility from',options:['Stage 2','Stage 3'],colspan:true});
+        const rD=S.requests.some(r=>r.type==='nld-dend'&&r.module==='pop');
+        F.push({type:'info',label:'⚠ D End <b>'+v.dHandoff+'</b>: <b>no parent node</b> — D End is the <b>actual job requested (child node)</b>. Creates a <b>new POP Feasibility (child)</b> + a new <b>'+v.dHandoff+'</b> request (existing flow). '+(rD?'<span class="tag live">Requests generated · NLD ref</span>':'Use the “Generate D-End requests” button below.'),colspan:true});
+      }
+      // ---- derived scenario + A–B–C–D connectivity ----
+      const sc=nldScenario(v.aHandoff,v.dHandoff);
+      if(sc) F.push({type:'info',label:'🔎 '+sc,colspan:true});
+      const chain=nldChain(v);
+      if(chain) F.push({type:'info',label:'🧭 <b>A–B–C–D connectivity:</b> '+chain,read:true,colspan:true});
+      // ---- POP feasibility flag ----
+      F.push({type:'radio',key:'popReq',label:'POP Feasibility Required',options:['Yes','No']});
+      if(v.popReq==='No') F.push({type:'info',label:'→ Direct PO placement (POP Feasibility Stage 3).',colspan:true});
+      if(v.popReq==='Yes') F.push({type:'info',label:'→ POP Feasibility Stage 2.',colspan:true});
+      return F;
+    },
+    actions:(v)=>{
+      const a=[{label:'Submit D End Selection',cls:'pri',enabled:true,onClick:'toast(\'D End BTS & topology saved\')'}];
+      if((v.aHandoff==='On Net'||v.aHandoff==='Off Net') && !S.requests.some(r=>r.type==='nld-aend'&&r.module==='pop'))
+        a.push({label:'Generate A-End requests (POP + '+v.aHandoff+')',cls:'',enabled:true,onClick:'nldEndGen("a")'});
+      if((v.dHandoff==='On Net'||v.dHandoff==='Off Net') && !S.requests.some(r=>r.type==='nld-dend'&&r.module==='pop'))
+        a.push({label:'Generate D-End requests (POP + '+v.dHandoff+')',cls:'',enabled:true,onClick:'nldEndGen("d")'});
+      return a;
+    }},
+
+   {id:'s3', title:'Stage 4 — Selection + commercials', desc:'Selected D End (from Stage 3) → ZOHO Books',
+    fields:()=>[
+      {type:'info',label:'Selected D End BTS from Stage 3: <b>'+(getv('nld','s2b','selected')||'—')+'</b> — capture commercials.',read:true,colspan:true},
+      {type:'text',key:'arc',label:'ARC'},{type:'text',key:'otc',label:'OTC'},
+      {type:'info',label:'On submit → call to ZOHO Books.',read:true,colspan:true},
+    ],
+    actions:()=>[{label:'Submit Stage 4',cls:'pri',enabled:true,onClick:'toast(\'NLD Stage 4 → ZOHO Books\')'}]},
+
+   {id:'s4', title:'Stage 5 — Port requirement', desc:'Fetch NLD info from Stage 4 · A-end L2POI/VLAN · D-end port',
+    fields:()=>[
+      {type:'info',label:'Fetch NLD info from Stage 4 (NLD back).',read:true,colspan:true},
+      {type:'text',key:'orderId',label:'Order ID'},
+      {type:'info',label:'A-end port detail: existing L2POI detail.',read:true,colspan:true},
+      {type:'select',key:'avlan',label:'A-end VLAN',hint:'(dropdown from NetBox VLAN group)',options:['VLAN-100','VLAN-200','VLAN-300']},
+      {type:'radio',key:'bport',label:'Port requirement for D-end',options:['1 Gbps Ethernet','1 Gbps Optical','10 Gbps Ethernet','10 Gbps Optical'],colspan:true},
+    ],
+    actions:()=>[{label:'Submit Stage 5',cls:'pri',enabled:true,onClick:'toast(\'NLD Stage 5 saved\')'}]},
+
+   {id:'s5', title:'Stage 6 — Go Live from Telco', desc:'Gates POP task module · shows A-end L2POI/VLAN when A End is Existing',
+    fields:(v)=>{
+      let F=[];
+      // A-end port detail + VLAN fetched from Stage 2 only when A End BTS = Existing
+      const ex=nldAEndExistingRow();
+      if(ex){
+        F.push({type:'info',label:'A-end port detail (fetched from Stage 2): POP/DC <b>'+(ex.node||'—')+'</b> · Port <b>'+(ex.aPort||'—')+'</b> <span class="muted">[A End BTS = Existing]</span>',read:true,colspan:true});
+        F.push({type:'info',label:'A-end VLAN (fetched from Stage 2): <b>'+(ex.avlan||'—')+'</b>',read:true,colspan:true});
+      }
+      F.push({type:'radio',key:'golive',label:'Go Live Received from Telco',options:['Yes','No']});
+      F.push({type:'info',label:'POP Feasibility Required is captured in Stage 3 (D End BTS Selection): <b>'+(getv('nld','s2b','popReq')||'—')+'</b>',read:true,colspan:true});
+      F.push({type:'info',label:'After Stage 6 → PR generates. '+gapFlag('G7'),read:true,colspan:true});
+      return F;
+    },
+    actions:()=>[{label:'Submit Stage 6 (Go Live)',cls:'pri',enabled:true,onClick:'nldGoLive()'}]},
+
+   {id:'s6', title:'Stage 7 — PR / Order details', desc:'Provider-specific order IDs + ends + TSP circuit',
+    gate:()=>S.flags.nldGoLive?{ok:true}:{ok:false,why:'Enabled after Stage 6 (Go Live).'},
+    fields:(v)=>{
+      const tel=getv('nld','s1','telco');
+      let F=[{type:'info',label:'Order ID captured in Stage 5: <b>'+(getv('nld','s4','orderId')||'—')+'</b>',read:true,colspan:true}];
+      F.push({type:'text',key:'provId',label:provLabel(tel),hint:'(provider-specific)'});
+      F.push({type:'info',label:'A/D End: Address, City, State, Pincode, Lat, Long, Port (all FETCH).',read:true,colspan:true});
+      F.push({type:'text',key:'aPort',label:'A End Port Details'});
+      F.push({type:'select',key:'aVlan',label:'A End VLAN',hint:'(from L2POI, editable)',options:['VLAN-100','VLAN-200']});
+      F.push({type:'text',key:'bPort',label:'D End Port Details'});
+      F.push({type:'text',key:'bVlan',label:'D End VLAN (if D is L2POI)'});
+      F.push({type:'text',key:'tsp',label:'TSP Circuit ID'});F.push({type:'text',key:'tspA',label:'TSP Circuit ID A'});F.push({type:'text',key:'tspB',label:'TSP Circuit ID B'});
+      F.push({type:'info',label:'On submit → PR Stage 2 enabled · push Provider/Account/Type/Circuit/Status(Planned) to NetBox · system generates NLD/Backhaul ID.',read:true,colspan:true});
+      return F;
+    },
+    actions:()=>[{label:'Submit → generate NLD/Backhaul ID',cls:'pri',enabled:true,onClick:'genNldId()'}]},
+
+   {id:'inst', title:'Installation Stage 1 (Juggle)', desc:'FE on-site → BM approve/revalidate → Infra → PR4',
+    fields:()=>[
+      {type:'info',label:'Infra Info (read-only if Managed/Infra CoLo). D End Port + Address/Lat/Long fetched from Stage 5.',read:true,colspan:true},
+      {type:'checks',key:'pwr',label:'Power Source',options:['AC','DC','Critical','Non Critical','UPS Backup'],colspan:true},
+      {type:'radio',key:'hyg',label:'Space Hygiene',options:['Yes','No']},
+      {type:'radio',key:'cable',label:'Cable Dressing Quality',options:['Yes','No']},
+      {type:'radio',key:'sec',label:'Physical Security',options:['Yes','No']},
+      {type:'radio',key:'water',label:'Water Logging Risk',options:['Yes','No']},
+      {type:'radio',key:'air',label:'Air Circulation',options:['Yes','No']},
+      {type:'file',key:'snaps',label:'Snaps',multi:true,colspan:true},
+      {type:'info',label:'On submit → details go to BM (appear in POP Feasibility Stage 4) for Approve / Revalidate.',read:true,colspan:true},
+    ],
+    actions:()=>[{label:'Submit → BM (POP Stage 4)',cls:'pri',enabled:true,onClick:'sendInstallToPop("nld")'}]},
+
+   {id:'pr5', title:'PR Stage 5 — Link validation', desc:'Speed/MTU/Latency; converts NetBox to Active',
+    fields:()=>[
+      {type:'info',label:'If A End L2POI is New:',read:true,colspan:true},
+      {type:'text',key:'aDuplex',label:'A End Speed Duplex'},
+      {type:'num',key:'mtu',label:'D End MTU Size reachability'},
+      {type:'num',key:'lat',label:'Latency'},
+      {type:'text',key:'bDuplex',label:'D End Speed Duplex'},
+      {type:'file',key:'bRef',label:'D End Link Status Reference',colspan:true},
+      {type:'info',label:'On submit → push to NetBox; Device / Power Feeds / Cable convert Planned → Active.',read:true,colspan:true},
+    ],
+    actions:()=>[{label:'Submit PR Stage 5',cls:'pri',enabled:true,onClick:'toast(\'NetBox: Planned → Active\')'}]},
+
+   {id:'pr6', title:'PR Stage 6 — Surveillance', desc:'Testing logs + 3-day observation',
+    fields:()=>[
+      {type:'file',key:'logs',label:'Testing Logs',multi:true,colspan:true},
+      {type:'radio',key:'cycle',label:'3-Day Surveillance Cycle',options:['Task Completed','Wait for 3 Days Observation']},
+      {type:'textarea',key:'obs',label:'Observation remarks',colspan:true},
+      {type:'file',key:'snaps',label:'Snaps',multi:true,colspan:true},
+      {type:'info',label:'Shows in NLD/Backhaul active circuit list with an Update dropdown (PR team adds updates + snaps + remarks).',read:true,colspan:true},
+    ],
+    actions:()=>[{label:'Complete PR Stage 6',cls:'pri',enabled:true,onClick:'toast(\'NLD circuit active\')'}]},
+
+   {id:'s7', title:'Stage 8 — Acceptance → Invoice (Kho-Kho)', desc:'Acceptance + invoice handoff',
+    fields:()=>[
+      {type:'file',key:'accSnap',label:'Acceptance Snap',colspan:true},{type:'date',key:'accDate',label:'Acceptance Date'},
+      {type:'info',label:'On submit → Invoice team (Kho-Kho) sees A/B details, PO date, PO attachment, PO number, acceptance attachments; can add Invoice Acceptance Date.',read:true,colspan:true},
+    ],
+    actions:()=>[{label:'Submit → Invoice (Kho-Kho)',cls:'pri',enabled:true,onClick:'toast(\'Sent to Invoice team (Kho-Kho)\')'}]},
+  ]
+},
+
+/* ---------------- 4. ON NET BACKHAUL ---------------- */
+onnet:{ title:'On Net Backhaul', sub:'Initiates after POP Stage 3 (POP code)', icon:'🔗',
+  stages:[
+   {id:'s1', title:'Stage 1 — Service type', desc:'Wireless / Wireline (after POP code)',
+    gate:()=>S.flags.popStage3Done?{ok:true}:{ok:false,why:'Initiates after POP Feasibility Stage 3 (POP code generated).'},
+    fields:(v)=>{
+      let F=[{type:'radio',key:'svc',label:'Service Type',options:['Wireless','Wireline']}];
+      if(v.svc){
+        F.push({type:'num',key:'bw',label:'Require Bandwidth (Mbps)',showIf:()=>v.svc==='Wireless'});
+        F.push({type:'select',key:'aEnd',label:'A End POP',hint:'(existing POP code + name)',options:popList()});
+        F.push({type:'info',label:'B End POP: '+(S.flags.popCode||'(from POP Feasibility)'),read:true,colspan:true});
+        F.push({type:'file',key:'gisSnap',label:'GIS Attachment',hint:'(snap from GIS with all details)',multi:true,colspan:true});
+      }
+      return F;
+    },
+    actions:()=>[{label:'Submit Stage 1',cls:'pri',enabled:true,onClick:'toast(\'On Net Stage 1 saved\')'}]},
+
+   {id:'s2', title:'Stage 2 — After PR Stage 5', desc:'Wireless fetches task data; Wireline = fiber/L2POI',
+    fields:(v)=>{
+      const svc=getv('onnet','s1','svc');
+      if(svc==='Wireless'){
+        return [
+          {type:'info',label:'Fetched from POP Feasibility Task: A/B End Device, Interface, IP, Management VLAN, Engineer, LM Snapshots, RF Distance, Signal, Throughput, Rx/Tx, Final Snapshots, LAN Negotiation (AP/CPE).',read:true,colspan:true},
+          {type:'date',key:'commDate',label:'Link Commission Date'},
+        ];
+      }
+      if(svc==='Wireline'){
+        return [
+          {type:'file',key:'instSnaps',label:'Installation Snaps',multi:true,colspan:true},
+          {type:'num',key:'fiber',label:'Fiber Length (KM)'},
+          {type:'repeater',key:'bts',label:'B End BTS details (+ add multiple)',itemLabel:'B End BTS',
+            sub:[
+              {key:'kind',type:'select',label:'A End BTS Details',options:['Existing','New L2','New L1']},
+              {key:'nodeType',type:'select',label:'Node Type',options:['POP','DC'],showIf:r=>r.kind&&r.kind!=='Existing',gap:'G10'},
+              {key:'bAddr',type:'text',label:'B End Address'},
+              {key:'bLat',type:'text',label:'B End Lat'},{key:'bLong',type:'text',label:'B End Long'},
+              {key:'feas',type:'select',label:'Feasibility',options:['Feasible','Not Feasible','Information Awaited']},
+            ]},
+        ];
+      }
+      return [{type:'info',label:'Select Service Type in Stage 1 first.',read:true,colspan:true}];
+    },
+    actions:()=>[{label:'Submit Stage 2',cls:'pri',enabled:true,onClick:'toast(\'On Net Stage 2 saved\')'}]},
+
+   {id:'s3', title:'Stage 3 — Selection + commercials', desc:'Pick feasible B end → ZOHO Books',
+    fields:()=>[
+      {type:'info',label:'List Stage 2 details with feasibility tags. Select one feasible B End → ZOHO Books.',read:true,colspan:true},
+      {type:'text',key:'arc',label:'ARC'},{type:'text',key:'otc',label:'OTC'},
+    ],
+    actions:()=>[{label:'Submit Stage 3',cls:'pri',enabled:true,onClick:'toast(\'On Net Stage 3 → ZOHO Books\')'}]},
+
+   {id:'s4', title:'Stage 4 — Port requirement', desc:'A-end L2POI + VLAN + B-end port',
+    fields:()=>[
+      {type:'info',label:'A-end port detail: existing L2POI (fetch).',read:true,colspan:true},
+      {type:'select',key:'avlan',label:'A-end VLAN',options:['VLAN-100','VLAN-200']},
+      {type:'radio',key:'bport',label:'Port requirement for B-end',options:['1 Gbps Ethernet','1 Gbps Optical','10 Gbps Ethernet','10 Gbps Optical'],colspan:true},
+      {type:'info',label:'After Stage 4 → PR generates.',read:true,colspan:true},
+    ],
+    actions:()=>[{label:'Submit Stage 4 → PR',cls:'pri',enabled:true,onClick:'toast(\'On Net Stage 4 saved\')'}]},
+
+   {id:'s5', title:'Stage 5 — Order / PR', desc:'Provider IDs + ends + TSP circuit '+'',
+    fields:(v)=>{
+      const tel=getv('nld','s1','telco');
+      let F=[{type:'text',key:'orderId',label:'Order ID'},{type:'text',key:'provId',label:provLabel(tel),hint:'(provider-specific)'}];
+      F.push({type:'info',label:'A/B End Address/City/State/Pincode/Lat/Long/Port — FETCH.',read:true,colspan:true});
+      F.push({type:'text',key:'aVlan',label:'A End VLAN (from L2POI, editable)'});
+      F.push({type:'text',key:'bVlan',label:'B End VLAN (if L2POI)'});
+      F.push({type:'text',key:'tsp',label:'TSP Circuit ID'});
+      F.push({type:'info',label:'On submit → PR Stage 2 enabled; push to NetBox; system generates NLD/Backhaul ID.',read:true,colspan:true});
+      return F;
+    },
+    actions:()=>[{label:'Submit → generate Backhaul ID',cls:'pri',enabled:true,onClick:'genNldId()'}]},
+
+   {id:'inst', title:'Installation Stage 1 (Juggle)', desc:'On Net specifics + FE checklist → BM (POP S4)',
+    fields:()=>[
+      {type:'info',label:'On Net: A/B End details · SVG from NetBox (Cable module) · GIS Snaps · Issued material list · IP Address info.',read:true,colspan:true},
+      {type:'checks',key:'pwr',label:'Power Source',options:['AC','DC','Critical','Non Critical','UPS Backup'],colspan:true},
+      {type:'radio',key:'hyg',label:'Space Hygiene',options:['Yes','No']},
+      {type:'radio',key:'cable',label:'Cable Dressing Quality',options:['Yes','No']},
+      {type:'radio',key:'sec',label:'Physical Security',options:['Yes','No']},
+      {type:'radio',key:'water',label:'Water Logging Risk',options:['Yes','No']},
+      {type:'radio',key:'air',label:'Air Circulation',options:['Yes','No']},
+      {type:'file',key:'snaps',label:'Snaps',multi:true,colspan:true},
+    ],
+    actions:()=>[{label:'Submit → BM (POP Stage 4)',cls:'pri',enabled:true,onClick:'sendInstallToPop("onnet")'}]},
+
+   {id:'pr5', title:'PR Stage 5 — Link validation', desc:'Speed/MTU/Latency → NetBox Active',
+    fields:()=>[
+      {type:'text',key:'aDuplex',label:'A End Speed Duplex'},
+      {type:'num',key:'mtu',label:'B End MTU Size reachability'},
+      {type:'num',key:'lat',label:'Latency'},
+      {type:'text',key:'bDuplex',label:'B End Speed Duplex'},
+      {type:'file',key:'bRef',label:'B End Link Status Reference',colspan:true},
+    ],
+    actions:()=>[{label:'Submit PR Stage 5',cls:'pri',enabled:true,onClick:'toast(\'NetBox: Planned → Active\')'}]},
+
+   {id:'pr6', title:'PR Stage 6 — Surveillance', desc:'Testing logs + 3-day observation',
+    fields:()=>[
+      {type:'file',key:'logs',label:'Testing Logs',multi:true,colspan:true},
+      {type:'radio',key:'cycle',label:'3-Day Surveillance Cycle',options:['Task Completed','Wait for 3 Days Observation']},
+      {type:'textarea',key:'obs',label:'Observation remarks',colspan:true},
+    ],
+    actions:()=>[{label:'Complete',cls:'pri',enabled:true,onClick:'toast(\'On Net circuit active\')'}]},
+
+   {id:'s6', title:'Stage 6 — Acceptance → Invoice', desc:'Acceptance + Kho-Kho handoff',
+    fields:()=>[
+      {type:'file',key:'accSnap',label:'Acceptance Snap',colspan:true},{type:'date',key:'accDate',label:'Acceptance Date'},
+      {type:'info',label:'On submit → Invoice team (Kho-Kho).',read:true,colspan:true},
+    ],
+    actions:()=>[{label:'Submit → Invoice',cls:'pri',enabled:true,onClick:'toast(\'Sent to Invoice team (Kho-Kho)\')'}]},
+  ]
+},
+
+/* ---------------- 5. OFF NET (END CUSTOMER) ---------------- */
+offcust:{ title:'Off Net — End Customer', sub:'From Job ID Off Net (Dark Fiber / Broadband)', icon:'🌐',
+  stages:[
+   {id:'s0', title:'Media Type', desc:'Dark Fiber or Broadband',
+    fields:(v)=>{
+      let F=[{type:'radio',key:'media',label:'Media Type',options:['Dark Fiber','Broadband']}];
+      if(v.media==='Dark Fiber') F.push({type:'radio',key:'sub',label:'Media Sub Type',options:['Chamber Handoff','Direct Handoff'],colspan:true});
+      return F;
+    }},
+   {id:'df1', title:'Dark Fiber · Stage 1', desc:'Bandwidth + ends',
+    gate:()=>getv('offcust','s0','media')==='Dark Fiber'?{ok:true}:{ok:false,why:'Select Media Type = Dark Fiber.'},
+    fields:()=>[
+      {type:'num',key:'bw',label:'Required Bandwidth (Mbps)'},
+      {type:'select',key:'aEnd',label:'A End',hint:'(existing POP)',options:popList()},
+      {type:'select',key:'bEnd',label:'B End',hint:'(New Activation Pending)',options:['(New Activation Pending POP)']},
+    ]},
+   {id:'df2', title:'Dark Fiber · Stage 2 — Vendor collection', desc:'(+) add multiple vendors',
+    gate:()=>getv('offcust','s0','media')==='Dark Fiber'?{ok:true}:{ok:false,why:'Dark Fiber only.'},
+    fields:()=>[
+      {type:'repeater',key:'vendors',label:'Vendors',itemLabel:'Vendor',
+        sub:[
+          {key:'vname',type:'text',label:'Vendor Name'},{key:'vnum',type:'text',label:'Vendor Number'},
+          {key:'isp',type:'text',label:'ISP Name'},
+          {key:'media',type:'select',label:'Media Type',options:['Chamber Handoff','Direct Handoff']},
+          {key:'vaAddr',type:'text',label:'Vendor A End Address + Lat/Long',showIf:r=>r.media==='Chamber Handoff',gap:'G3'},
+          {key:'vbAddr',type:'text',label:'Vendor B End Address + Lat/Long',showIf:r=>r.media==='Chamber Handoff',gap:'G3'},
+          {key:'arc',type:'text',label:'ARC'},{key:'otc',type:'text',label:'OTC'},
+          {key:'bill',type:'select',label:'Billing Cycle',options:['Monthly','Quarterly','Yearly','Post Paid','Prepaid']},
+        ]},
+    ]},
+   {id:'df3', title:'Dark Fiber · Stage 3 — Vendor selection', desc:'Pick one → add to system',
+    gate:()=>getv('offcust','s0','media')==='Dark Fiber'?{ok:true}:{ok:false,why:'Dark Fiber only.'},
+    fields:()=>[{type:'info',label:'Show Stage 2 list · select one vendor + Action → add to system. If Chamber Handoff → Stage 4 applies; if Direct Handoff → skip to Stage 5. '+gapFlag('G3'),read:true,colspan:true}],
+    actions:()=>[{label:'Select vendor',cls:'pri',enabled:true,onClick:'toast(\'Vendor added to system\')'}]},
+   {id:'df4', title:'Dark Fiber · Stage 4 — Distances (Chamber Handoff only)', desc:'Chamber distances → push to Active NLD/Backhaul',
+    gate:()=>{
+      const v=getv('offcust','s0','media'), s=getv('offcust','s0','sub');
+      return v==='Dark Fiber'&&s==='Chamber Handoff'?{ok:true}:{ok:false,why:'Only for Dark Fiber + Chamber Handoff.'};
+    },
+    fields:()=>[
+      {type:'num',key:'da',label:'A End ↔ Vendor A End chamber distance (km)'},
+      {type:'num',key:'db',label:'B End ↔ Vendor B End chamber distance (km)'},
+      {type:'info',label:'After this → push to Active NLD/Backhaul.',read:true,colspan:true},
+    ]},
+   {id:'df5', title:'Dark Fiber · Stage 5 — Acceptance', desc:'Acceptance + remarks',
+    gate:()=>getv('offcust','s0','media')==='Dark Fiber'?{ok:true}:{ok:false,why:'Dark Fiber only.'},
+    fields:()=>[{type:'date',key:'accDate',label:'Acceptance Date'},{type:'textarea',key:'rem',label:'Remarks',colspan:true}],
+    actions:()=>[{label:'Accept',cls:'pri',enabled:true,onClick:'toast(\'Dark Fiber accepted\')'}]},
+
+   {id:'bb1', title:'Broadband · Stage 1 — Vendors', desc:'(+) add multiple vendors',
+    gate:()=>getv('offcust','s0','media')==='Broadband'?{ok:true}:{ok:false,why:'Select Media Type = Broadband.'},
+    fields:()=>[
+      {type:'repeater',key:'vendors',label:'Vendors',itemLabel:'Vendor',
+        sub:[
+          {key:'vname',type:'text',label:'Vendor Name'},{key:'vnum',type:'text',label:'Vendor Number'},
+          {key:'isp',type:'text',label:'ISP Name'},{key:'plan',type:'text',label:'Plan (multiple per vendor)'},
+          {key:'arc',type:'text',label:'ARC'},{key:'otc',type:'text',label:'OTC'},
+          {key:'dur',type:'text',label:'Service Duration'},
+        ]},
+    ]},
+   {id:'bb2', title:'Broadband · Stage 2 — Vendor selection', desc:'Select by ARC / OTC / PO',
+    gate:()=>getv('offcust','s0','media')==='Broadband'?{ok:true}:{ok:false,why:'Broadband only.'},
+    fields:()=>[
+      {type:'info',label:'Show vendor options list.',read:true,colspan:true},
+      {type:'file',key:'po',label:'PO Placement attachment',colspan:true},
+    ],
+    actions:()=>[{label:'Select vendor',cls:'pri',enabled:true,onClick:'toast(\'Broadband vendor selected\')'}]},
+   {id:'bb3', title:'Broadband · Stage 3 — Service credentials', desc:'PPPoE / Static / DHCP → PR',
+    gate:()=>getv('offcust','s0','media')==='Broadband'?{ok:true}:{ok:false,why:'Broadband only.'},
+    fields:()=>[
+      {type:'radio',key:'stype',label:'Service Type',options:['PPPoE','Static','DHCP'],colspan:true},
+      {type:'text',key:'sname',label:'Service Name'},{type:'text',key:'user',label:'User Name'},
+      {type:'text',key:'pass',label:'Password'},{type:'text',key:'pub',label:'Public IP'},
+      {type:'text',key:'acct',label:'Account Number'},
+      {type:'info',label:'After submit → PR generates.',read:true,colspan:true},
+    ],
+    actions:()=>[{label:'Submit → PR',cls:'pri',enabled:true,onClick:'toast(\'Broadband PR generated\')'}]},
+   {id:'bbpr', title:'Broadband · PR Stage 1', desc:'VPN tunnel → UAT handover',
+    gate:()=>getv('offcust','s0','media')==='Broadband'?{ok:true}:{ok:false,why:'Broadband only.'},
+    fields:()=>[
+      {type:'select',key:'aEnd',label:'VPN Tunnel A End (POP/DC)',options:popList(true)},
+      {type:'text',key:'cpe',label:'Customer CPE IP Address'},
+      {type:'text',key:'svlan',label:'Service VLAN (NNI VLAN)'},
+      {type:'file',key:'logs',label:'Reference Logs',multi:true,colspan:true},
+      {type:'info',label:'Then → UAT Handover.',read:true,colspan:true},
+    ],
+    actions:()=>[{label:'UAT Handover',cls:'pri',enabled:true,onClick:'toast(\'Broadband → UAT Handover\')'}]},
+  ]
+},
+
+/* ---------------- 6. OFF NET (POP-to-POP BACKHAUL) ---------------- */
+offp2p:{ title:'Off Net — POP↔POP Backhaul', sub:'Initiates after POP Stage 3 (B End POP code)', icon:'🔀',
+  stages:[
+   {id:'s1', title:'Stage 1 — Ends', desc:'A=existing POP, B=after POP code',
+    gate:()=>S.flags.popStage3Done?{ok:true}:{ok:false,why:'B End initiates after POP Feasibility Stage 3 (POP code generated).'},
+    fields:()=>[
+      {type:'radio',key:'media',label:'Media Type',options:['Chamber Handoff','Direct Handoff']},
+      {type:'select',key:'aEnd',label:'A End',hint:'(existing POP)',options:popList()},
+      {type:'info',label:'B End: '+(S.flags.popCode||'(after POP code)'),read:true,colspan:true},
+    ]},
+   {id:'s2', title:'Stage 2 — Vendor collection', desc:'(+) add multiple vendors',
+    gate:()=>S.flags.popStage3Done?{ok:true}:{ok:false,why:'After POP code.'},
+    fields:()=>[
+      {type:'repeater',key:'vendors',label:'Vendors',itemLabel:'Vendor',
+        sub:[
+          {key:'vname',type:'text',label:'Vendor Name'},{key:'vnum',type:'text',label:'Vendor Number'},
+          {key:'isp',type:'text',label:'ISP Name'},
+          {key:'media',type:'select',label:'Media Type',options:['Chamber Handoff','Direct Handoff']},
+          {key:'vaAddr',type:'text',label:'Vendor A End Address + Lat/Long',showIf:r=>r.media==='Chamber Handoff',gap:'G3'},
+          {key:'vbAddr',type:'text',label:'Vendor B End Address + Lat/Long',showIf:r=>r.media==='Chamber Handoff',gap:'G3'},
+          {key:'arc',type:'text',label:'ARC'},{key:'otc',type:'text',label:'OTC'},
+          {key:'bill',type:'select',label:'Billing Cycle',options:['Monthly','Quarterly','Yearly','Post Paid','Prepaid']},
+        ]},
+    ]},
+   {id:'s3', title:'Stage 3 — Vendor selection', desc:'Pick one → add to system',
+    gate:()=>S.flags.popStage3Done?{ok:true}:{ok:false,why:'After POP code.'},
+    fields:()=>[{type:'info',label:'Select one vendor + Action → add to system. Chamber Handoff → Stage 4; Direct Handoff → Stage 5. '+gapFlag('G3'),read:true,colspan:true}],
+    actions:()=>[{label:'Select vendor',cls:'pri',enabled:true,onClick:'toast(\'Vendor added\')'}]},
+   {id:'s4', title:'Stage 4 — Distances (Chamber Handoff only)', desc:'→ push to Active NLD/Backhaul',
+    gate:()=>getv('offp2p','s1','media')==='Chamber Handoff'?{ok:true}:{ok:false,why:'Only for Chamber Handoff.'},
+    fields:()=>[
+      {type:'num',key:'da',label:'A End ↔ Vendor A End chamber distance (km)'},
+      {type:'num',key:'db',label:'B End ↔ Vendor B End chamber distance (km)'},
+      {type:'info',label:'After this → push to Active NLD/Backhaul.',read:true,colspan:true},
+    ]},
+   {id:'s5', title:'Stage 5 — Acceptance', desc:'Acceptance + remarks',
+    gate:()=>S.flags.popStage3Done?{ok:true}:{ok:false,why:'After POP code.'},
+    fields:()=>[{type:'date',key:'accDate',label:'Acceptance Date'},{type:'textarea',key:'rem',label:'Remarks',colspan:true}],
+    actions:()=>[{label:'Accept',cls:'pri',enabled:true,onClick:'toast(\'Off Net P2P accepted\')'}]},
+  ]
+},
+
+/* ---------------- 7. L2POI ---------------- */
+l2poi:{ title:'L1/L2POI', sub:'Layer-1 and Layer-2 Interconnect registry', icon:'🧩',
+  stages:[
+   {id:'s1', title:'L2POI List', desc:'Registered L2 Points of Interconnect',
+    fields:()=>[{type:'custom',key:'tbl',render:l2poiTable,colspan:true}]},
+  ]
+}
+
+};
+
+/* ---------- small data helpers ---------- */
+function popList(includePlanned){
+  const base=['POP-2025-00031 · Bopal','POP-2025-00044 · SG Highway','POP-2025-00077 · Maninagar'];
+  if(S.flags.popCode) base.unshift(S.flags.popCode+' · (this job, planned)');
+  return base;
+}
+function provLabel(tel){
+  return tel==='Vodafone'?'OSM ID': tel==='TTSL'?'SAF No': tel==='Airtel'?'RA No': tel==='BSNL'?'Reference No':'Provider Ref No';
+}
+function nldAEndExistingRow(){
+  const bts=getv('nld','s2','bts');
+  return Array.isArray(bts) ? bts.find(r=>r.kind==='Existing') : null;
+}
+function nldAEndExisting(){ return !!nldAEndExistingRow(); }
+function nldBEndTable(){
+  const bts=getv('nld','s2','bts')||[];
+  if(!bts.length) return `<div class="f full"><div class="info read">No D End BTS added yet — add them in Stage 2.</div></div>`;
+  const sel=getv('nld','s2b','selected');
+  return `<div class="f full"><label>D End BTS details (from Stage 2)</label>
+   <table class="tbl"><thead><tr><th>#</th><th>A End BTS</th><th>D End Address</th><th>D End Lat</th><th>D End Long</th><th>Feasibility</th></tr></thead>
+   <tbody>${bts.map((r,i)=>`<tr class="${sel&&sel.indexOf('D End '+(i+1)+':')===0?'sel':''}"><td>${i+1}</td><td>${r.kind||'—'}</td><td>${r.bAddr||'—'}</td><td>${r.bLat||'—'}</td><td>${r.bLong||'—'}</td><td>${r.feas||'—'}</td></tr>`).join('')}</tbody>
+   </table></div>`;
+}
+function nldScenario(a,d){
+  if(!a||!d) return null;
+  const ad=a==='Direct', dd=d==='Direct';
+  if(ad&&dd) return '<b>Scenario 1 — Direct Backhaul</b> · A End ↔ D End direct (no BTS, no last mile)';
+  if(!ad&&!dd) return '<b>Scenario 2 — Backhaul at Both Ends</b> · A →BTS→ NLD →BTS→ D (last mile at both ends)';
+  return '<b>Scenario 3 — Backhaul at one end, Direct at other</b> · '+(ad?'A End Direct, D End '+d:'A End '+a+', D End Direct');
+}
+function nldChain(v){
+  if(!v.aHandoff || !v.dHandoff) return null;
+  const seg=[];
+  if(v.aHandoff==='Direct') seg.push('<b>A</b> = A End (Origin)');
+  else { seg.push('<b>A</b> = '+(v.aParentPop?String(v.aParentPop).split(' · ')[0]:'Parent Node')+' (acts as A-End)'); seg.push('<b>B</b> = New A-side POP ('+v.aHandoff+' · child)'); }
+  if(v.dHandoff==='Direct') seg.push('<b>D</b> = D End (Job requested)');
+  else { seg.push('<b>C</b> = New D-side POP ('+v.dHandoff+' · child)'); seg.push('<b>D</b> = D End (Job requested · child)'); }
+  return seg.join(' &nbsp;→&nbsp; ');
+}
+function connectedBackhaulSummary(){
+  const r=S.requests.filter(x=>['nld','onnet','offp2p'].includes(x.module));
+  return r.length? r.map(x=>x.id+' ('+MODULES[x.module].title.split('—')[0].trim()+')').join(', ') : '— none yet —';
+}
+function l2poiTable(){
+  const rows=[
+    ['Vodafone','India','Gujarat','Ahmedabad','VOD-AMD-1123','MUX-03/12','POP-2025-00031 · Bopal','L2','Active'],
+    ['Airtel','India','Maharashtra','Mumbai','AIR-MUM-8841','MUX-01/04','DC-MUM-02','L1','Active'],
+    ['BSNL','India','Gujarat','Surat','BSNL-SRT-2290','MUX-07/09','POP-2025-00044 · SG Highway','L2','New Activation Pending'],
+    ['TTSL','India','Gujarat','Vadodara','TTSL-BRD-5567','MUX-05/02','POP-2025-00077 · Maninagar','L1','New Activation Pending']
+  ];
+  const stTag=s=>`<span class="tag ${s==='Active'?'live':'warn'}">${s}</span>`;
+  return `<div class="f full"><table class="tbl">
+   <thead><tr>
+     <th>Telco Name</th><th>Country</th><th>State</th><th>City/Village</th><th>Telco Site ID</th><th>Mux Port</th><th>Origin Point (POP/DC name)</th><th>Type</th><th>Status</th>
+   </tr></thead>
+   <tbody>${rows.map(r=>`<tr>${r.slice(0,7).map(c=>`<td>${c}</td>`).join('')}<td>${r[7]}</td><td>${stTag(r[8])}</td></tr>`).join('')}</tbody>
+   </table></div>`;
+}
+function nearbyPopTable(){
+  const sel=getv('pop','s1','nbpop');
+  const rows=[
+    ['POP-2025-00031','Bopal','1000 Mbps','620 Mbps','540 Mbps'],
+    ['POP-2025-00044','SG Highway','1000 Mbps','910 Mbps','880 Mbps'],
+    ['POP-2025-00077','Maninagar','1000 Mbps','300 Mbps','260 Mbps']
+  ];
+  return `<div class="f full"><label>Near By POP of Customer (within 20 KM) ${gapFlag('G5')}</label>
+   <table class="tbl"><thead><tr><th>POP Code</th><th>POP Name</th><th>Capacity</th><th>Allocated BW</th><th>Utilized BW (Zabbix)</th><th>Select</th></tr></thead>
+   <tbody>
+     ${rows.map(r=>`<tr class="${sel===r[0]?'sel':''}">${r.map(c=>`<td>${c}</td>`).join('')}<td><input type="radio" name="nbpop" ${sel===r[0]?'checked':''} onchange="onField('pop','s1','nbpop','${r[0]}')"></td></tr>`).join('')}
+   </tbody></table>
+   <div class="hint">Capacity = POP created BW (from backhaul) · Allocated = customer data · Utilized = Zabbix. No threshold rule defined for forcing Reject vs Proceed.${sel?' <b>Selected:</b> '+sel:''}</div></div>`;
+}
+
+/* ============================================================================
+   CROSS-MODULE WORKFLOW ACTIONS
+   ============================================================================ */
+function submitJobId(){
+  const v=vstore('jobid','s1');
+  const raisesPop =
+     (v.lmtype==='On Net' && ((v.media==='Wireless'&&v.wlPop==='No')||(v.media==='Wireline'&&((v.wlnType==='Linear+RF'&&v.lrPop==='No')||(v.wlnType==='Linear'&&v.linPop==='No')||(v.wlnType==='Ring'&&v.ringType==='Last Mile Ring from POP'&&v.rmPop==='No')))))
+  || (v.lmtype==='Off Net' && v.offType==='Dark Fiber' && v.dfPop==='No');
+  if(v.lmtype==='On Net' && v.media==='Wireline' && v.wlnType==='Ring' && v.ringType==='Dark Fiber Ring'){
+    toast('Dark Fiber Feasibility requested (placeholder — see gap G2).'); return;
+  }
+  if(raisesPop){
+    S.flags.popRaised=true;
+    raise('pop','feasibility','Job ID List','Job '+(v.jobid||'(new)')+' · '+(v.cust||'')+' · '+(v.lmtype||''),'New');
+    // seed POP stage 1 with job details
+    const p=vstore('pop','s1'); p.jobid=v.jobid; p.cust=v.cust;
+    go('pop');
+  } else if(v.lmtype==='Off Net' && (v.offType==='Broadband'||v.offType==='Sim Card'||v.offType==='Dark Fiber')){
+    raise('offcust','customer','Job ID List','Off Net '+v.offType+' · '+(v.cust||''),'New');
+    if(v.offType==='Dark Fiber') vstore('offcust','s0').media='Dark Fiber';
+    if(v.offType==='Broadband'||v.offType==='Sim Card') vstore('offcust','s0').media='Broadband';
+    go('offcust');
+  } else {
+    toast('Job submitted — existing POP selected, no feasibility needed.');
+  }
+}
+
+function submitPopS1(){
+  const v=vstore('pop','s1');
+  if(v.decision==='Reject with Selected POP'){
+    setReqStatus('pop',null,'Closed — assigned '+(v.rejPop||'existing POP'));
+    toast('POP request rejected · '+(v.rejPop||'existing POP')+' assigned back to Job ID. (assumption G4)');
+    return;
+  }
+  S.flags.popStage1Done=true;
+  setReqStatus('pop',null,'In Feasibility');
+  // spawn backhaul request
+  if(v.backhaul==='NLD'){
+    raise('nld','backhaul','POP Feasibility','NLD draft for '+(v.jobid||'job'),'Draft');
+  } else if(v.backhaul==='On Net'){
+    raise('onnet','backhaul','POP Feasibility','On Net (waiting for POP code)','Waiting — POP Stage 3');
+  } else if(v.backhaul==='Off Net'){
+    raise('offp2p','backhaul','POP Feasibility','Off Net P2P (waiting for POP code)','Waiting — POP Stage 3');
+  }
+  toast('Stage 1 submitted. Backhaul = '+v.backhaul);
+  rerender();
+}
+
+function submitPopS2(){
+  if((getv('pop','s2','survey')||[]).includes('Site survey required')) toast('Juggle task created (selected location).');
+  else toast('Proceeding to Stage 3.');
+  rerender();
+}
+function submitJuggle(){ toast('Juggle Stage 1 submitted.'); rerender(); }
+
+function genPopCode(){
+  if(S.flags.popCode) return;
+  S.flags.popCode='POP-2026-'+String(12).padStart(5,'0');
+  S.flags.popStage3Done=true;
+  // unlock On Net / Off Net P2P
+  S.requests.filter(r=>(r.module==='onnet'||r.module==='offp2p')&&/Waiting/.test(r.status)).forEach(r=>r.status='Active (POP code ready)');
+  renderNav();
+  toast('✅ POP Code generated: <b>'+S.flags.popCode+'</b><br>On Net / Off Net P2P requests are now unlocked.');
+  rerender();
+}
+
+function submitPopS4(){ toast('Stage 5 submitted → New Activation Pending.'); rerender(); }
+function approveInstall(){
+  S.requests.filter(r=>r.status==='Awaiting POP S4 approval').forEach(r=>r.status='Approved → Infra → PR4');
+  renderNav(); toast('Installation approved → Infra team → PR Stage 4 enabled.'); rerender();
+}
+function revalidateInstall(){
+  S.requests.filter(r=>r.status==='Awaiting POP S4 approval').forEach(r=>r.status='Revalidate → FE task again');
+  renderNav(); toast('Revalidation requested → back to FE.'); rerender();
+}
+function sendInstallToPop(mod){
+  setReqStatus(mod,'backhaul','Awaiting POP S4 approval');
+  toast('Installation details sent to BM → appear in POP Feasibility Stage 4.');
+  rerender();
+}
+function nldGoLive(){
+  S.flags.nldGoLive=true; renderNav();
+  toast('NLD Go-Live recorded → POP task module gate satisfied (G7). Stage 6 enabled.');
+  rerender();
+}
+function nldEndGen(side){
+  const v=vstore('nld','s2b');
+  const ho = side==='a'? v.aHandoff : v.dHandoff;
+  if(ho!=='On Net' && ho!=='Off Net'){ toast('Set the handoff to On Net / Off Net first.'); return; }
+  const tag = side==='a'?'nld-aend':'nld-dend';
+  if(S.requests.some(r=>r.type===tag && r.module==='pop')){ toast('Requests already generated for this end.'); return; }
+  const endName = side==='a'?'A End':'D End';
+  const startStage = (side==='a'? v.aStartStage : v.dStartStage) || 'Stage 2';
+  const node = side==='a' ? ('child of '+(v.aParentPop?String(v.aParentPop).split(' · ')[0]:'Parent Node')) : 'child node (actual job)';
+  // 1) POP Feasibility (child) — optionable start stage
+  raise('pop', tag, 'NLD — '+endName, 'New POP (child) for NLD '+endName+' · start '+startStage+' · '+node, 'New · from '+startStage);
+  // 2) On/Off Net backhaul request on the same side (existing flow)
+  if(ho==='On Net') raise('onnet', tag, 'NLD — '+endName, 'On Net backhaul for NLD '+endName+' · NLD ref', 'New · NLD ref');
+  else raise('offp2p', tag, 'NLD — '+endName, 'Off Net backhaul for NLD '+endName+' · NLD ref', 'New · NLD ref');
+  S.flags.popRaised=true;
+  toast(endName+': POP Feasibility (from '+startStage+') + '+ho+' request generated · NLD reference.');
+  rerender();
+}
+function genNldId(){
+  raise('nld','id','PR','System-generated NLD/Backhaul ID','New Activation Pending');
+  toast('NLD/Backhaul ID generated → New Activation Pending.');
+  rerender();
+}
+
+/* ============================================================================
+   RENDERING
+   ============================================================================ */
+function renderNav(){
+  const order=[['jobid'],['pop'],['nld','onnet'],['offcust','offp2p']];
+  const nav=document.getElementById('nav');
+  const items=Object.keys(MODULES).map(m=>{
+    const n=reqsFor(m).length;
+    const active=S.cur===m?'active':'';
+    return `<div class="navitem ${active}" data-mod="${m}">
+       <span class="ic">${MODULES[m].icon}</span><span class="nm">${MODULES[m].title}</span>
+       <span class="badge ${n?'has':''}">${n||''}</span></div>`;
+  }).join('');
+  nav.innerHTML=items;
+  nav.querySelectorAll('[data-mod]').forEach(el=>el.onclick=()=>go(el.dataset.mod));
+  // view items active state
+  document.querySelectorAll('[data-view]').forEach(el=>{
+    el.classList.toggle('active',S.cur===el.dataset.view);
+    el.onclick=()=>go(el.dataset.view);
+  });
+  document.querySelector('[data-act="reset"]').onclick=resetDemo;
+  document.getElementById('gapBadge').textContent=Object.keys(GAPS).length;
+}
+
+function go(target){ S.cur=target; renderNav(); render(); window.scrollTo(0,0); }
+
+function render(){
+  // capture focus + caret so typing survives the re-render
+  const a=document.activeElement;
+  const aid=a&&a.id?a.id:null;
+  let ss=null,se=null; try{ ss=a.selectionStart; se=a.selectionEnd; }catch(e){}
+  const view=document.getElementById('view');
+  const ttl=document.getElementById('ttl'), tsub=document.getElementById('tsub');
+  const ta=document.getElementById('topActions'); ta.innerHTML='';
+  if(S.cur==='flow'){ ttl.textContent='Flow & Dependencies'; tsub.textContent='How a request propagates across the 6 modules'; view.innerHTML=renderFlow(); return; }
+  if(S.cur==='gaps'){ ttl.textContent='Gaps & Assumptions'; tsub.textContent='11 gaps found in the PDFs — best-guess assumptions applied'; view.innerHTML=renderGaps(); return; }
+  const M=MODULES[S.cur];
+  ttl.textContent=M.title; tsub.textContent=M.sub;
+  // top actions: data viewer + expand/collapse
+  ta.innerHTML=`<button class="btn sm ghost" onclick="toggleData()">${S.showData?'▴ Hide':'▾ Show'} captured data</button>
+                <button class="btn sm ghost" onclick="setAllStages(false)">Expand all</button>
+                <button class="btn sm ghost" onclick="setAllStages(true)">Collapse all</button>`;
+  // request status pills
+  const reqs=reqsFor(S.cur);
+  let pills='';
+  if(reqs.length){ pills='<div class="pillrow">'+reqs.map(r=>`<span class="tag chip">${r.id}</span> <span class="tag ${statusCls(r.status)}">${r.status}</span> <span class="muted" style="margin-right:10px">${r.label}</span>`).join('')+'</div>'; }
+  const dataPanel=S.showData?`<div class="info" style="white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;margin-bottom:16px">${escapeHtml(JSON.stringify(moduleData(S.cur),null,2))}</div>`:'';
+  view.innerHTML = pills + dataPanel + M.stages.map(st=>renderStage(S.cur,st)).join('');
+  bindStageHeads();
+  // restore focus + caret
+  if(aid){ const el=document.getElementById(aid); if(el){ try{el.focus({preventScroll:true});}catch(e){el.focus();} try{if(ss!=null)el.setSelectionRange(ss,se);}catch(e){} } }
+}
+function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function moduleData(mod){
+  const out={}; Object.keys(S.values).filter(k=>k.startsWith(mod+'.')).forEach(k=>{ out[k.split('.')[1]]=S.values[k]; });
+  return Object.keys(out).length?out:{'(no data entered yet)':''};
+}
+function toggleData(){ S.showData=!S.showData; render(); }
+function setAllStages(collapsed){
+  const M=MODULES[S.cur]; M.stages.forEach(st=>{ S.collapsed[S.cur+'.'+st.id]=collapsed; }); render();
+}
+function statusCls(s){ if(/Active|Approved|active|ready/.test(s))return 'live'; if(/Await|Waiting|Draft|Revalidate|Pending|Hold/.test(s))return 'warn'; if(/Closed|Reject/.test(s))return 'bad'; return 'draft'; }
+
+function renderStage(mod,st){
+  const key=mod+'.'+st.id;
+  const gate=st.gate?st.gate(S):{ok:true};
+  const collapsed=S.collapsed[key]?'collapsed':'';
+  const v=vstore(mod,st.id);
+  let bodyInner;
+  if(!gate.ok){
+    bodyInner=`<div class="lockmsg">🔒 <div><b>Locked.</b> ${gate.why}</div></div>`;
+  } else {
+    const fields=(typeof st.fields==='function')?st.fields(v,S):(st.fields||[]);
+    const inner=fields.map(f=>{
+      if(f.showIf && !f.showIf(v,S)) return '';
+      if(f.type==='custom') return f.render();
+      return field(mod,st.id,f);
+    }).join('');
+    const acts=(st.actions?(typeof st.actions==='function'?st.actions(v,S):st.actions):[]);
+    const actHtml=acts.length?`<div style="margin-top:16px;display:flex;gap:10px">${acts.map(a=>`<button class="btn ${a.cls||''}" ${a.enabled?'':'disabled'} onclick="${a.onClick}">${a.label}</button>`).join('')}</div>`:'';
+    bodyInner=`<div class="grid">${inner}</div>${actHtml}`;
+  }
+  return `<div class="stage ${collapsed} ${gate.ok?'':'locked'}" data-key="${key}">
+     <div class="head">
+       <span class="stg">${st.title}</span>
+       <span class="desc">${st.desc||''}</span>
+       <span class="right">${gate.ok?'':'<span class="tag draft">🔒 locked</span>'}</span>
+     </div>
+     <div class="body">${bodyInner}</div>
+   </div>`;
+}
+function bindStageHeads(){
+  document.querySelectorAll('.stage .head').forEach(h=>{
+    h.onclick=()=>{ const k=h.parentElement.dataset.key; S.collapsed[k]=!S.collapsed[k]; render(); };
+  });
+}
+
+/* re-render current module/view (used by field changes) */
+function rerender(){ render(); }
+
+function renderFlow(){
+  const f=S.flags;
+  const chk=(b)=>b?'<span class="tag ok">done</span>':'<span class="tag draft">pending</span>';
+  return `
+  <div class="legend">
+    <span><span class="tag ok">done</span> milestone reached</span>
+    <span><span class="tag draft">pending</span> not yet</span>
+    <span><span class="tag warn">waiting</span> blocked by dependency</span>
+  </div>
+  <div class="flow">
+    <div class="fnode"><h3>1 · Job ID List ${chk(f.popRaised)}</h3><p>Decision tree. If POP unavailable → raises POP Feasibility. If Off Net Broadband/Sim/Dark-Fiber → seeds Off Net (End Customer).</p></div>
+    <div class="farrow">↓ raises</div>
+    <div class="fnode"><h3>2 · POP Feasibility — Stage 1 ${chk(f.popStage1Done)}</h3><p>Backhaul type chosen here. <b>NLD</b> draft appears <u>immediately</u>; <b>On Net / Off Net P2P</b> wait for the POP code (Stage 3).</p></div>
+    <div class="frow" style="margin:6px 0">
+      <div class="fnode"><h3>3a · NLD Feasibility</h3><p>Starts after Stage 1. Feeds Installation details back to POP Stage 4. Go-Live gates POP task.</p></div>
+      <div class="fnode"><h3>3b · On Net Backhaul</h3><p>${f.popStage3Done?'<span class="tag live">unlocked</span>':'<span class="tag warn">waiting for POP code</span>'}</p></div>
+      <div class="fnode"><h3>3c · Off Net P2P</h3><p>${f.popStage3Done?'<span class="tag live">unlocked</span>':'<span class="tag warn">waiting for POP code</span>'}</p></div>
+    </div>
+    <div class="farrow">↓ Stage 2 survey → Juggle → Stage 3</div>
+    <div class="fnode"><h3>POP Stage 3 · POP Code ${chk(f.popStage3Done)}</h3><p>${f.popCode?('Generated <b>'+f.popCode+'</b> — unlocks On Net & Off Net P2P.'):'Generating the POP code (POP-YYYY-seq5) unlocks On Net & Off Net P2P backhaul.'}</p></div>
+    <div class="farrow">↓ parallel feedback loops</div>
+    <div class="fnode"><h3>POP Stage 4 ↔ NLD/On Net Installation</h3><p>Installation (Juggle-1) details surface here for <b>Approve / Revalidate</b>. Revalidate → back to FE.</p></div>
+    <div class="farrow">↓</div>
+    <div class="fnode"><h3>PR pipeline → Provisioning → 3-day Observation → Acceptance → Active</h3><p>Rack/Power (NetBox) → Device (conditional on backhaul) → Cables → Last Mile (On Net) / Task → Provisioning → Observation → POP/Circuit Active.</p></div>
+  </div>`;
+}
+
+function renderGaps(){
+  const kpis=`<div class="pillrow">
+    <div class="kpi"><div class="n">11</div><div class="l">gaps flagged</div></div>
+    <div class="kpi"><div class="n">6</div><div class="l">modules designed</div></div>
+    <div class="kpi"><div class="n">7</div><div class="l">cross-module deps</div></div>
+  </div>`;
+  const list=Object.entries(GAPS).map(([id,g])=>`
+    <div class="item"><h4>${gapFlag(id)} &nbsp; ${g.t}</h4>
+      <div class="where">📍 ${g.where}</div>
+      <div class="ass"><b>Assumption applied in demo:</b> ${g.a}</div>
+    </div>`).join('');
+  return kpis+'<div class="gaplist">'+list+'</div>';
+}
+
+/* ---------- reset ---------- */
+function resetDemo(){
+  S.values={}; S.collapsed={}; S.requests=[]; SEQ=1; S.showData=false;
+  S.flags={popRaised:false,popCode:null,popStage1Done:false,popStage3Done:false,nldGoLive:false};
+  go('jobid'); toast('Demo state reset.');
+}
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(html){
+  const t=document.getElementById('toast'); t.innerHTML=html; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),3200);
+}
+
+/* ---------- boot ---------- */
+renderNav(); render();
+</script>
+</body>
+</html>
