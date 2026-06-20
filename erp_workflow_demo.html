@@ -161,6 +161,7 @@ const S = {
   requests: []                  // {id,module,type,from,status,label}
 };
 let SEQ = 1;
+let GENPOP = 1;   // counter for generated (child) POP ids in NLD Stage 3
 
 /* ---------- helper to read/write field values ---------- */
 function vstore(mod, stage){ const k=mod+'.'+stage; return (S.values[k] ||= {}); }
@@ -780,40 +781,33 @@ nld:{ title:'NLD / Backhaul Feasibility', sub:'Parallel to POP — draft appears
     ],
     actions:()=>[{label:'Submit Stage 2',cls:'pri',enabled:true,onClick:'toast(\'NLD Stage 2 saved\')'}]},
 
-   {id:'s2b', title:'Stage 3 — B End Selection & Topology', desc:'Select B End BTS · A End handoff first, then B End',
+   {id:'s2b', title:'Stage 3 — Network Design (Topology)', desc:'Feasible Stage 2 records → A/B End type & handoff → auto-generate child requests',
     fields:(v)=>{
       const bts=getv('nld','s2','bts')||[];
-      const opts=bts.map((r,i)=>'B End '+(i+1)+': '+(r.bAddr||'(no address)')+(r.feas?' — '+r.feas:''));
-      let F=[
-        {type:'custom',key:'tbl',render:nldBEndTable,colspan:true},
-        {type:'radio',key:'selected',label:'Select one B End BTS',options:opts.length?opts:['(add B End BTS in Stage 2 first)'],colspan:true},
-      ];
-      let selKind=null;
-      if(v.selected){ const m=v.selected.match(/^B End (\d+):/); if(m){ const row=bts[parseInt(m[1],10)-1]; selKind=row&&row.kind; } }
-      const isNew=(selKind==='New L1' || selKind==='New L2');
-      // ---- A End handoff (asked first) ----
-      F.push({type:'radio',key:'aHandoff',label:'A End Handoff Type',options:['Direct','On Net','Off Net'],colspan:true});
-      if(v.aHandoff==='On Net'){
-        F.push({type:'radio',key:'aOnNetType',label:'A End On Net Type',options:['Wireless','Wireline','Ring'],colspan:true});
-        if(isNew) F.push({type:'select',key:'aParentPop',label:'A End Parent POP',options:popList()});
-      }
-      if(v.aHandoff==='Off Net' && isNew) F.push({type:'select',key:'aParentPop',label:'A End Parent POP',options:popList()});
-      // A End POP request auto-generates once an On Net sub-type is chosen
-      nldReconcilePop('nld-aend', v.aHandoff==='On Net' && !!v.aOnNetType, 'New POP for NLD A End'+(v.aOnNetType?' ('+v.aOnNetType+')':''));
-      // ---- B End handoff (only when A End is On Net / Off Net) ----
-      if(v.aHandoff==='On Net' || v.aHandoff==='Off Net'){
-        F.push({type:'radio',key:'bHandoff',label:'B End Handoff Type',options:['Direct','On Net','Off Net'],colspan:true});
-        if(v.bHandoff==='On Net') F.push({type:'radio',key:'bOnNetType',label:'B End On Net Type',options:['Wireless','Wireline','Ring'],colspan:true});
-      }
-      // B End POP request auto-generates when B End is On Net / Off Net (Direct = none)
-      nldReconcilePop('nld-bend', (v.aHandoff==='On Net'||v.aHandoff==='Off Net') && (v.bHandoff==='On Net'||v.bHandoff==='Off Net'), 'New POP for NLD B End'+(v.bHandoff?' ('+v.bHandoff+')':''));
-      // ---- derived scenario ----
-      const sc=nldScenario(v.aHandoff, v.bHandoff);
-      if(sc) F.push({type:'info',label:'🔎 '+sc,colspan:true});
-      F.push({type:'radio',key:'popReq',label:'POP Feasibility Required',options:['Yes','No']});
+      // Step 1/2: only Feasible records proceed; pick one B End
+      const feasible=bts.map((r,i)=>({r,i})).filter(x=>x.r.feas==='Feasible');
+      let F=[{type:'custom',key:'tbl',render:nldBEndTable,colspan:true}];
+      // ---- A End ----
+      F.push({type:'info',label:'<b>A End</b> (from Stage 2): '+(getv('nld','s1','aEnd')||'A End details'),read:true,colspan:true});
+      F.push({type:'radio',key:'aType',label:'A End Type',options:['Existing','New L1','New L2'],colspan:true});
+      nldEndBlock(F,v,'a');
+      // ---- B End ----
+      const opts=feasible.map(x=>'B End '+(x.i+1)+': '+(x.r.bAddr||'(no address)'));
+      F.push({type:'radio',key:'selected',label:'Select one B End (Feasible only)',options:opts.length?opts:['(no Feasible B End in Stage 2)'],colspan:true});
+      F.push({type:'radio',key:'bType',label:'B End Type',options:['Existing','New L1','New L2'],colspan:true});
+      nldEndBlock(F,v,'b');
+      // auto-generate / reconcile child requests for each New On/Off-Net end
+      nldEndReconcile('a'); nldEndReconcile('b');
+      // Step 4: both Existing → normal flow
+      if(v.aType && v.bType && !nldIsNew(v.aType) && !nldIsNew(v.bType))
+        F.push({type:'info',label:'Both ends Existing → normal NLD flow · no POP creation, no nested requests.',read:true,colspan:true});
+      // Step 10/12: topology + reference map
+      F.push({type:'info',label:'🧭 <b>Topology:</b> '+nldTopology(v),read:true,colspan:true});
+      const refs=nldRefMap(v);
+      if(refs) F.push({type:'info',label:refs,read:true,colspan:true});
       return F;
     },
-    actions:()=>[{label:'Submit B End Selection',cls:'pri',enabled:true,onClick:'toast(\'NLD Stage 3 saved\')'}]},
+    actions:()=>[{label:'Submit Stage 3',cls:'pri',enabled:true,onClick:'toast(\'NLD Stage 3 saved\')'}]},
 
    {id:'s3', title:'Stage 4 — Selection + commercials', desc:'Selected B End (from Stage 3) → ZOHO Books',
     fields:()=>[
@@ -843,7 +837,7 @@ nld:{ title:'NLD / Backhaul Feasibility', sub:'Parallel to POP — draft appears
         F.push({type:'info',label:'A-end VLAN (fetched from Stage 2): <b>'+(ex.avlan||'—')+'</b>',read:true,colspan:true});
       }
       F.push({type:'radio',key:'golive',label:'Go Live Received from Telco',options:['Yes','No']});
-      F.push({type:'info',label:'POP Feasibility Required is captured in Stage 3 (B End Selection): <b>'+(getv('nld','s2b','popReq')||'—')+'</b>',read:true,colspan:true});
+      F.push({type:'info',label:'Stage 3 generated child requests: <b>'+(S.requests.filter(r=>/^nld-[ab]-(pop|net)$/.test(r.type)).map(r=>r.id).join(', ')||'none')+'</b>',read:true,colspan:true});
       F.push({type:'info',label:'After Stage 6 → PR generates. '+gapFlag('G7'),read:true,colspan:true});
       return F;
     },
@@ -1184,17 +1178,37 @@ function nldBEndTable(){
   const bts=getv('nld','s2','bts')||[];
   if(!bts.length) return `<div class="f full"><div class="info read">No B End BTS added yet — add them in Stage 2.</div></div>`;
   const sel=getv('nld','s2b','selected');
-  return `<div class="f full"><label>B End BTS details (from Stage 2)</label>
-   <table class="tbl"><thead><tr><th>#</th><th>A End BTS</th><th>B End Address</th><th>B End Lat</th><th>B End Long</th><th>Feasibility</th></tr></thead>
-   <tbody>${bts.map((r,i)=>`<tr class="${sel&&sel.indexOf('B End '+(i+1)+':')===0?'sel':''}"><td>${i+1}</td><td>${r.kind||'—'}</td><td>${r.bAddr||'—'}</td><td>${r.bLat||'—'}</td><td>${r.bLong||'—'}</td><td>${r.feas||'—'}</td></tr>`).join('')}</tbody>
+  const fTag=f=> f==='Feasible'?'<span class="tag ok">Feasible</span>': f==='Not Feasible'?'<span class="tag bad">Not Feasible</span>': f==='Information Awaited'?'<span class="tag warn">Information Awaited</span>':'—';
+  return `<div class="f full"><label>Stage 2 records (only Feasible can proceed)</label>
+   <table class="tbl"><thead><tr><th>#</th><th>A End BTS</th><th>B End Address</th><th>B End Lat</th><th>B End Long</th><th>Status</th></tr></thead>
+   <tbody>${bts.map((r,i)=>`<tr class="${sel&&sel.indexOf('B End '+(i+1)+':')===0?'sel':''}"><td>${i+1}</td><td>${r.kind||'—'}</td><td>${r.bAddr||'—'}</td><td>${r.bLat||'—'}</td><td>${r.bLong||'—'}</td><td>${fTag(r.feas)}</td></tr>`).join('')}</tbody>
    </table></div>`;
 }
-function nldScenario(a,d){
-  if(!a||!d) return null;
-  const ad=a==='Direct', dd=d==='Direct';
-  if(ad&&dd) return '<b>Scenario 1 — Direct Backhaul</b> · A End ↔ B End direct (no BTS, no last mile)';
-  if(!ad&&!dd) return '<b>Scenario 2 — Backhaul at Both Ends</b> · A →BTS→ NLD →BTS→ B (last mile at both ends)';
-  return '<b>Scenario 3 — Backhaul at one end, Direct at other</b> · '+(ad?'A End Direct, B End '+d:'A End '+a+', B End Direct');
+// Step 10: Job POP is always the final endpoint; build the parent-child chain
+function nldTopology(v){
+  const job='Job POP (final endpoint)';
+  let left = nldIsNew(v.aType)
+    ? ['Parent POP(A)'+(v.aParentPop?': '+nldShort(v.aParentPop):''), 'New A POP']
+    : ['A End'+(v.aType?' (Existing)':'')];
+  let right = nldIsNew(v.bType)
+    ? ['New B POP', 'Parent POP(B)'+(v.bParentPop?': '+nldShort(v.bParentPop):'')]
+    : [];
+  return [...left, job, ...right].join(' → ');
+}
+// Step 12: reference map for the generated child requests
+function nldRefMap(v){
+  const ends=['a','b'].filter(end=>{
+    const ho=v[end+'Handoff'];
+    return nldIsNew(v[end+'Type']) && (ho==='On Net'||ho==='Off Net') && v[end+'Transport'];
+  });
+  if(!ends.length) return null;
+  const jobId=getv('pop','s1','jobid')||getv('jobid','s1','jobid')||'(Job)';
+  const popReq=(S.requests.find(r=>r.module==='pop'&&r.type==='feasibility')||{}).id||'(POP req)';
+  let html='📑 <b>Reference map (generated child requests):</b>';
+  ends.forEach(end=>{
+    html+='<br>• <b>'+end.toUpperCase()+' End</b> — Job '+jobId+' · POP Req '+popReq+' · Parent NLD (current) · Parent POP '+(nldShort(v[end+'ParentPop'])||'?')+' · Generated POP '+(vstore('nld','s2b')[end+'GenPop']||'?')+' · '+v[end+'Transport']+' · '+v[end+'Handoff'];
+  });
+  return html;
 }
 function connectedBackhaulSummary(){
   const r=S.requests.filter(x=>['nld','onnet','offp2p'].includes(x.module));
@@ -1315,10 +1329,37 @@ function nldGoLive(){
   toast('NLD Go-Live recorded → POP task module gate satisfied (G7). Stage 6 enabled.');
   rerender();
 }
-function nldReconcilePop(tag, need, label){
-  const exists=S.requests.some(r=>r.type===tag && r.module==='pop');
-  if(need && !exists){ S.flags.popRaised=true; raise('pop',tag,'NLD',label+' (NLD ref)','New · NLD ref'); }
-  else if(!need && exists){ S.requests=S.requests.filter(r=>r.type!==tag); renderNav(); }
+function nldIsNew(t){ return t==='New L1' || t==='New L2'; }
+function nldShort(x){ return x?String(x).split(' · ')[0]:''; }
+// Build the per-end config fields (Step 5-8): Handoff → Parent POP (always) → Transport (On/Off Net)
+function nldEndBlock(F,v,end){
+  if(!nldIsNew(v[end+'Type'])) return;            // Existing → no extra config
+  const E=end.toUpperCase();
+  F.push({type:'radio',key:end+'Handoff',label:E+' End Handoff Type',options:['Direct','On Net','Off Net'],colspan:true});
+  const ho=v[end+'Handoff'];
+  if(ho==='Direct'){
+    F.push({type:'select',key:end+'ParentPop',label:E+' End Parent POP',options:popList()});
+  } else if(ho==='On Net' || ho==='Off Net'){
+    F.push({type:'select',key:end+'ParentPop',label:E+' End Parent POP',options:popList()});
+    F.push({type:'radio',key:end+'Transport',label:E+' End Transport Type',options:['Wireless','Wireline','Ring'],colspan:true});
+  }
+}
+// Step 11/Rule 7-8: On/Off Net New end → POP Feasibility request + On/Off-Net request (reconciled)
+function nldEndReconcile(end){
+  const v=vstore('nld','s2b');
+  const ho=v[end+'Handoff'], transport=v[end+'Transport'], parent=v[end+'ParentPop'];
+  const need=nldIsNew(v[end+'Type']) && (ho==='On Net'||ho==='Off Net') && !!transport;
+  const popTag='nld-'+end+'-pop', netTag='nld-'+end+'-net';
+  const exists=S.requests.some(r=>r.type===popTag);
+  if(need && !exists){
+    const gen=v[end+'GenPop'] || (v[end+'GenPop']='POP-NEW-'+end.toUpperCase()+String(GENPOP++).padStart(2,'0'));
+    S.flags.popRaised=true;
+    raise('pop',popTag,'NLD '+end.toUpperCase()+' End','POP Feasibility (child) '+gen+' · parent '+(nldShort(parent)||'?')+' · '+ho+'/'+transport,'New · NLD ref');
+    raise(ho==='On Net'?'onnet':'offp2p',netTag,'NLD '+end.toUpperCase()+' End',ho+' request '+gen+' · '+transport,'New · NLD ref');
+  } else if(!need && exists){
+    S.requests=S.requests.filter(r=>r.type!==popTag && r.type!==netTag);
+    delete v[end+'GenPop']; renderNav();
+  }
 }
 function genNldId(){
   raise('nld','id','PR','System-generated NLD/Backhaul ID','New Activation Pending');
@@ -1469,7 +1510,7 @@ function renderGaps(){
 
 /* ---------- reset ---------- */
 function resetDemo(){
-  S.values={}; S.collapsed={}; S.requests=[]; SEQ=1; S.showData=false;
+  S.values={}; S.collapsed={}; S.requests=[]; SEQ=1; GENPOP=1; S.showData=false;
   S.flags={popRaised:false,popCode:null,popStage1Done:false,popStage3Done:false,nldGoLive:false};
   go('jobid'); toast('Demo state reset.');
 }
