@@ -210,7 +210,8 @@ const S = {
     popRaised:false, popCode:null, popStage1Done:false, popStage3Done:false,
     nldGoLive:false
   },
-  requests: []                  // {id,module,type,from,status,label}
+  requests: [],                 // {id,module,type,from,status,label}
+  contracts: []                 // POP Contract records added this session
 };
 let SEQ = 1;
 let GENPOP = 1;   // counter for generated (child) POP ids in NLD Stage 3
@@ -1202,7 +1203,51 @@ offp2p:{ title:'Off Net — POP↔POP Backhaul', sub:'Initiates after POP Stage 
   ]
 },
 
-/* ---------------- 7. L2POI ---------------- */
+/* ---------------- 7. POP CONTRACT ---------------- */
+contract:{ title:'POP Contract', sub:'Sub-contracts on a POP Code · Line ID · PO in ZOHO Books', icon:'🧾',
+  stages:[
+   {id:'list', title:'Contracts', desc:'Sub-contracts hanging off POP codes',
+    fields:()=>[{type:'custom',key:'tbl',render:contractTable,colspan:true}]},
+   {id:'new', title:'Add new contract', desc:'Add-on / New / Renew → Line ID + PO (ZOHO Books)',
+    fields:(v)=>{
+      let F=[{type:'select',key:'popsel',label:'POP selection',hint:'(POP name + code)',options:contractPopOptions()}];
+      if(v.popsel) F.push({type:'radio',key:'cmode',label:'What do you want to do?',options:['Add-on to contract','New contract','Agreement renew'],colspan:true});
+      if(v.cmode==='Add-on to contract'){
+        F.push({type:'info',label:'Existing: U space <b>9U</b> · Radio mount <b>2</b> · Monthly <b>₹18,000</b> · Billing start <b>2025-04-01</b> · Next due <b>2026-07-01</b>',read:true,colspan:true});
+        F.push({type:'num',key:'addU',label:'Add U space'});
+        F.push({type:'num',key:'mount',label:'Radio mount permission'});
+        F.push({type:'date',key:'billStart',label:'Billing start date'});
+        F.push({type:'select',key:'billCycle',label:'Billing cycle',options:['Monthly','Quarterly','Annual']});
+        F.push({type:'text',key:'arc',label:'ARC (₹)'});F.push({type:'text',key:'otc',label:'OTC (₹)'});
+      }
+      if(v.cmode==='New contract'){
+        F.push({type:'radio',key:'ctype',label:'Contract type',options:['Infra Provider','Own'],colspan:true});
+        if(v.ctype==='Infra Provider') F.push({type:'select',key:'infra',label:'Infra provider',options:['GTPL Infra','Sterlite','Railtel']});
+        F.push({type:'num',key:'uspace',label:'U space'});
+        F.push({type:'num',key:'mount',label:'Radio mount permission'});
+        F.push({type:'date',key:'billStart',label:'Billing start date'});
+        F.push({type:'select',key:'billCycle',label:'Billing cycle',options:['Monthly','Quarterly','Annual']});
+        F.push({type:'text',key:'arc',label:'ARC (₹)'});F.push({type:'text',key:'otc',label:'OTC (₹)'});
+      }
+      if(v.cmode==='Agreement renew'){
+        F.push({type:'info',label:'Existing: Pole mounting <b>Yes</b> · Monthly <b>₹9,500</b> · Billing start <b>2024-03-01</b> · Last agreement <b>2024-03-01</b> · Next due <b>2026-03-01</b>',read:true,colspan:true});
+        F.push({type:'date',key:'billStart',label:'Billing start date'});
+        F.push({type:'date',key:'renewDate',label:'Renew agreement date'});
+        F.push({type:'file',key:'att',label:'Attachments',multi:true});
+        F.push({type:'select',key:'billCycle',label:'Billing cycle',options:['Monthly','Quarterly','Annual']});
+        F.push({type:'text',key:'arc',label:'ARC (₹)'});F.push({type:'text',key:'otc',label:'OTC (₹)'});
+      }
+      if(v.cmode){
+        F.push({type:'info',label:'🔖 <b>Line ID:</b> <span style="font-family:ui-monospace,Consolas,monospace">'+contractLineId(v)+'</span> &nbsp;<span class="muted">= POP Code · provider/OWN · RCK · U space</span>',colspan:true});
+        F.push({type:'info',label:'Submit → PO generates in ZOHO Books · contract stored against the POP Code (Active POP).',read:true,colspan:true});
+      }
+      return F;
+    },
+    actions:(v)=>[{label:'Submit contract → PO (ZOHO Books)',cls:'pri',enabled:!!v.cmode,onClick:'submitContract()'}]},
+  ]
+},
+
+/* ---------------- 8. L2POI ---------------- */
 l2poi:{ title:'L1/L2POI', sub:'Layer-1 and Layer-2 Interconnect registry', icon:'🧩',
   stages:[
    {id:'s1', title:'L2POI List', desc:'Registered L2 Points of Interconnect',
@@ -1538,6 +1583,51 @@ function bindStageHeads(){
 /* re-render current module/view (used by field changes) */
 function rerender(){ render(); }
 
+/* ---------- POP Contract helpers ---------- */
+const CONTRACT_SEED=[
+  {lineId:'POP-2026-00118-GTPL-RCK-9U',code:'POP-2026-00118',name:'Optimal SG-Hwy',type:'Infra Provider',city:'Ahmedabad',state:'Gujarat',status:'Active'},
+  {lineId:'POP-2026-00061-OWN-RCK-12U',code:'POP-2026-00061',name:'Optimal Maninagar',type:'Own',city:'Ahmedabad',state:'Gujarat',status:'Renewal due'}
+];
+const CONTRACT_POPS=[
+  {name:'Optimal SG-Hwy',code:'POP-2026-00118'},
+  {name:'Optimal Ahmedabad',code:'POP-2026-00097'},
+  {name:'Optimal Maninagar',code:'POP-2026-00061'}
+];
+function contractPopOptions(){
+  const o=CONTRACT_POPS.map(p=>p.name+' · '+p.code);
+  if(S.flags.popCode) o.unshift('(this job) · '+S.flags.popCode);
+  return o;
+}
+function contractPopCode(v){ const m=(v.popsel||'').match(/POP-\d{4}-\d{5}/); return m?m[0]:'POP-YYYY-00000'; }
+function provCode4(n){ if(!n)return '????'; const map={'GTPL Infra':'GTPL','Sterlite':'STRL','Railtel':'RAIL'}; return map[n]||n.replace(/[^A-Za-z0-9]/g,'').slice(0,4).toUpperCase(); }
+function contractExisting(code){ return CONTRACT_SEED.find(c=>c.code===code); }
+function parseLineId(lid){ const m=(lid||'').match(/-([A-Z0-9]+)-RCK-(\d+)U$/); return m?{prov:m[1],u:parseInt(m[2],10)}:{prov:'OWN',u:0}; }
+function contractLineId(v){
+  const code=contractPopCode(v);
+  if(v.cmode==='New contract'){
+    const prov=v.ctype==='Infra Provider'?provCode4(v.infra):'OWN';
+    return code+'-'+prov+'-RCK-'+(v.uspace||'?')+'U';
+  }
+  const ex=contractExisting(code), base=ex?parseLineId(ex.lineId):{prov:'OWN',u:0};
+  if(v.cmode==='Add-on to contract') return code+'-'+base.prov+'-RCK-'+(base.u+(parseInt(v.addU,10)||0))+'U';
+  if(v.cmode==='Agreement renew') return code+'-'+base.prov+'-RCK-'+base.u+'U';
+  return code+'-?-RCK-?U';
+}
+function contractTable(){
+  const rows=CONTRACT_SEED.concat(S.contracts);
+  const st=s=> s==='Active'?'<span class="tag live">Active</span>': s==='Renewal due'?'<span class="tag warn">Renewal due</span>':'<span class="tag draft">'+s+'</span>';
+  return `<div class="f full"><table class="tbl"><thead><tr><th>Line ID</th><th>POP code</th><th>POP name</th><th>Type</th><th>City</th><th>State</th><th>Status</th></tr></thead>
+   <tbody>${rows.map(r=>`<tr><td>${r.lineId}</td><td>${r.code}</td><td>${r.name}</td><td>${r.type}</td><td>${r.city}</td><td>${r.state}</td><td>${st(r.status)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function submitContract(){
+  const v=vstore('contract','new');
+  if(!v.cmode){ toast('Select a POP and mode first.'); return; }
+  const code=contractPopCode(v), ex=contractExisting(code);
+  const type = v.cmode==='New contract' ? (v.ctype||'Own') : (ex?ex.type:'Own');
+  S.contracts.push({lineId:contractLineId(v), code, name:ex?ex.name:String(v.popsel||'').split(' · ')[0], type, city:ex?ex.city:'—', state:ex?ex.state:'—', status:'Active'});
+  toast('Contract submitted — PO generated in ZOHO Books · '+contractLineId(v));
+  rerender();
+}
 function dataFlow(steps){
   return '<div class="dflow">'+steps.map((s,i)=>{
     let h=`<div class="dstep ${s.key?'key':''}"><div class="dt">${s.t}</div>${s.s?`<div class="ds">${s.s}</div>`:''}${s.branch?`<div class="dbranch">⤳ ${s.branch}</div>`:''}</div>`;
@@ -1546,7 +1636,7 @@ function dataFlow(steps){
   }).join('')+'</div>';
 }
 function renderWorkflow(){
-  const order=['jobid','pop','nld','onnet','offcust','offp2p','l2poi'];
+  const order=['jobid','pop','nld','onnet','offcust','offp2p','contract','l2poi'];
   const intro={
     jobid:'Entry point. Picks last-mile type and decides whether a POP / Off-Net / Dark-Fiber request is raised.',
     pop:'The hub — created when a POP is unavailable. Stage 3 generates the POP code (unlocks On Net / Off Net). Runs the full PR pipeline through to Active.',
@@ -1554,12 +1644,14 @@ function renderWorkflow(){
     onnet:'Initiates after POP Stage 3 (POP code). Wireless / Wireline backhaul → PR → acceptance.',
     offcust:'From Job ID List Off-Net jobs — Dark Fiber or Broadband. Vendor collection → selection → service credentials.',
     offp2p:'POP-to-POP Off-Net backhaul. Initiates after POP Stage 3. Vendor collection → distances → acceptance.',
+    contract:'Commercial step — sub-contracts hang off a POP Code. Add-on / New / Renew, each carrying a Line ID and generating a PO in ZOHO Books.',
     l2poi:'Registry of Layer-1 / Layer-2 interconnects, referenced by NLD / On Net New L2/L1 ends.'
   };
   const triggers={
     jobid:'➜ raises <b>POP Feasibility</b> (POP unavailable) or seeds <b>Off Net — End Customer</b>.',
     pop:'➜ Stage 1 spawns <b>NLD</b> (now) and <b>On Net / Off Net P2P</b> (after Stage 3).',
     nld:'➜ may generate child <b>POP Feasibility</b> + <b>On Net / Off Net</b> requests · registers in <b>L1/L2POI</b>.',
+    contract:'➜ generates a <b>PO in ZOHO Books</b>; contract stored against the POP Code (Active POP).',
     onnet:'', offcust:'', offp2p:'', l2poi:''
   };
   // ---- three data-flow diagrams (NLD / On Net / Off Net) ----
@@ -1720,7 +1812,7 @@ function renderGaps(){
 
 /* ---------- reset ---------- */
 function resetDemo(){
-  S.values={}; S.collapsed={}; S.requests=[]; SEQ=1; GENPOP=1; S.showData=false;
+  S.values={}; S.collapsed={}; S.requests=[]; S.contracts=[]; SEQ=1; GENPOP=1; S.showData=false;
   S.flags={popRaised:false,popCode:null,popStage1Done:false,popStage3Done:false,nldGoLive:false};
   go('jobid'); toast('Demo state reset.');
 }
