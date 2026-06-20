@@ -120,6 +120,14 @@
   .fxleg .n{flex:0 0 20px;height:20px;border-radius:20px;background:#1f2937;color:#fff;font-weight:700;font-size:11px;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}
   .fxleg .n.fb{background:#f59e0b}.fxleg .n.reg{background:#3b82f6}
   @media(max-width:760px){.fxleg{grid-template-columns:1fr}}
+  /* stage-wise workflow */
+  .wf{position:relative;margin-top:4px}
+  .wfrow{position:relative;border-left:2px solid var(--line);margin-left:11px;padding:7px 0 7px 20px}
+  .wfrow:last-child{border-left-color:transparent}
+  .wfn{position:absolute;left:-12px;top:7px;width:23px;height:23px;border-radius:50%;background:var(--brand);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .wft{font-weight:600;font-size:13px}
+  .wfd{color:var(--muted);font-size:12px;margin-top:2px}
+  .wfx{display:inline-block;background:#eef2ff;color:#3730a3;border-radius:6px;font-size:11px;font-weight:600;padding:1px 7px;margin-left:6px}
   .toast{position:fixed;bottom:22px;right:22px;background:#0f172a;color:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;max-width:340px;z-index:50;opacity:0;transform:translateY(10px);transition:.25s}
   .toast.show{opacity:1;transform:none}
   .pillrow{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 16px}
@@ -143,6 +151,7 @@
     <div class="navsec">Origin</div>
     <div id="nav"></div>
     <div class="navsec">Views</div>
+    <div class="navitem" data-view="workflow"><span class="ic">🧭</span><span class="nm">Workflow (Stage-wise)</span></div>
     <div class="navitem" data-view="flow"><span class="ic">🗺️</span><span class="nm">Flow &amp; Dependencies</span></div>
     <div class="navitem" data-view="gaps"><span class="ic">⚠️</span><span class="nm">Gaps &amp; Assumptions</span><span class="badge has" id="gapBadge">11</span></div>
     <div class="navsec">Demo</div>
@@ -1439,6 +1448,7 @@ function render(){
   const view=document.getElementById('view');
   const ttl=document.getElementById('ttl'), tsub=document.getElementById('tsub');
   const ta=document.getElementById('topActions'); ta.innerHTML='';
+  if(S.cur==='workflow'){ ttl.textContent='Workflow (Stage-wise)'; tsub.textContent='Complete end-to-end process — every module & stage in order'; view.innerHTML=renderWorkflow(); return; }
   if(S.cur==='flow'){ ttl.textContent='Flow & Dependencies'; tsub.textContent='How a request propagates across the 6 modules'; view.innerHTML=renderFlow(); return; }
   if(S.cur==='gaps'){ ttl.textContent='Gaps & Assumptions'; tsub.textContent='11 gaps found in the PDFs — best-guess assumptions applied'; view.innerHTML=renderGaps(); return; }
   const M=MODULES[S.cur];
@@ -1504,6 +1514,46 @@ function bindStageHeads(){
 
 /* re-render current module/view (used by field changes) */
 function rerender(){ render(); }
+
+function renderWorkflow(){
+  const order=['jobid','pop','nld','onnet','offcust','offp2p','l2poi'];
+  const intro={
+    jobid:'Entry point. Picks last-mile type and decides whether a POP / Off-Net / Dark-Fiber request is raised.',
+    pop:'The hub — created when a POP is unavailable. Stage 3 generates the POP code (unlocks On Net / Off Net). Runs the full PR pipeline through to Active.',
+    nld:'Runs in parallel — the NLD draft appears right after POP Stage 1. Stage 3 Network Design can spawn child POP + On/Off-Net requests; Installation feeds back to POP Stage 4 (Approve / Revalidate).',
+    onnet:'Initiates after POP Stage 3 (POP code). Wireless / Wireline backhaul → PR → acceptance.',
+    offcust:'From Job ID List Off-Net jobs — Dark Fiber or Broadband. Vendor collection → selection → service credentials.',
+    offp2p:'POP-to-POP Off-Net backhaul. Initiates after POP Stage 3. Vendor collection → distances → acceptance.',
+    l2poi:'Registry of Layer-1 / Layer-2 interconnects, referenced by NLD / On Net New L2/L1 ends.'
+  };
+  const triggers={
+    jobid:'➜ raises <b>POP Feasibility</b> (POP unavailable) or seeds <b>Off Net — End Customer</b>.',
+    pop:'➜ Stage 1 spawns <b>NLD</b> (now) and <b>On Net / Off Net P2P</b> (after Stage 3).',
+    nld:'➜ may generate child <b>POP Feasibility</b> + <b>On Net / Off Net</b> requests · registers in <b>L1/L2POI</b>.',
+    onnet:'', offcust:'', offp2p:'', l2poi:''
+  };
+  let html='<p class="muted" style="margin:0 0 14px">The complete process, stage by stage, in execution order. <span class="wfx">conditional</span> marks a gated stage that runs only when its dependency is met.</p>';
+  order.forEach((mod,mi)=>{
+    const M=MODULES[mod];
+    html+=`<div class="stage" style="margin-bottom:16px">
+      <div class="head" style="cursor:default">
+        <span class="stg">${mi+1}. ${M.icon} ${M.title}</span>
+        <span class="desc">${M.stages.length} stage${M.stages.length>1?'s':''}</span>
+      </div>
+      <div class="body">
+        <div class="info">${intro[mod]||''}${triggers[mod]?'<br>'+triggers[mod]:''}</div>
+        <div class="wf" style="margin-top:12px">
+          ${M.stages.map((st,si)=>`<div class="wfrow">
+            <span class="wfn">${si+1}</span>
+            <div class="wft">${st.title}${st.gate?' <span class="wfx">conditional</span>':''}</div>
+            <div class="wfd">${st.desc||''}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  });
+  return html;
+}
 
 function renderFlow(){
   const f=S.flags;
