@@ -152,6 +152,14 @@
   .dconn .dtip{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #94a3b8}
   .dconn .dlbl{position:relative;background:#fff;border:1px solid var(--line);border-radius:20px;font-size:10px;color:#475569;padding:1px 9px;text-align:center}
   .sbt{font:600 10px 'Segoe UI',system-ui,sans-serif;fill:#1f2733}
+  /* Active POP read-only detail */
+  .sech{font-weight:700;font-size:13px;color:var(--ink);margin:16px 0 4px}
+  .sech:first-child{margin-top:0}
+  .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:6px 0 4px}
+  .kv .c{background:#fff;padding:8px 11px}
+  .kv .c small{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+  .kv .c b{font-size:13px;color:var(--ink);font-weight:600}
+  .table-wrap2{overflow-x:auto;margin:6px 0 4px}
   .toast{position:fixed;bottom:22px;right:22px;background:#0f172a;color:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;max-width:340px;z-index:50;opacity:0;transform:translateY(10px);transition:.25s}
   .toast.show{opacity:1;transform:none}
   .pillrow{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 16px}
@@ -212,7 +220,8 @@ const S = {
     nldGoLive:false
   },
   requests: [],                 // {id,module,type,from,status,label}
-  contracts: []                 // POP Contract records added this session
+  contracts: [],                // POP Contract records added this session
+  activeView: null              // selected Active POP id (detail view)
 };
 let SEQ = 1;
 let GENPOP = 1;   // counter for generated (child) POP ids in NLD Stage 3
@@ -1249,107 +1258,13 @@ contract:{ title:'POP Contract', sub:'Sub-contracts on a POP Code · Line ID · 
 },
 
 /* ---------------- 8. ACTIVE POP ---------------- */
-active:{ title:'Active POP', sub:'Live view of an activated POP — full record', icon:'✅',
+active:{ title:'Active POP', sub:'Database of activated POPs — read-only', icon:'✅',
   stages:[
-   {id:'gen', title:'General Information', desc:'Identity · location · BTS',
-    fields:(v)=>{
-      let F=[
-        {type:'text',key:'popId',label:'POP ID',ph:'POP-2026-00118'},
-        {type:'radio',key:'popType',label:'POP Type',options:['Infra Provider','Manageable'],colspan:true},
-        {type:'text',key:'popName',label:'POP Name'},
-        {type:'text',key:'siteId',label:'Site ID'},
-      ];
-      const infra=v.popType==='Infra Provider';
-      if(infra){ F.push({type:'text',key:'infraProv',label:'Infra Provider'}); F.push({type:'text',key:'refNo',label:'Reference Number'}); }
-      F.push({type:'text',key:'region',label:'Region'});F.push({type:'text',key:'tgroup',label:'Tenant group'});
-      F.push({type:'text',key:'tenant',label:'Tenant'});F.push({type:'text',key:'country',label:'Country'});
-      F.push({type:'text',key:'state',label:'State'});F.push({type:'text',key:'district',label:'District'});
-      F.push({type:'text',key:'city',label:'City/Village'});F.push({type:'text',key:'area',label:'Area'});
-      F.push({type:'text',key:'lat',label:'Lat'});F.push({type:'text',key:'long',label:'Long'});
-      F.push({type:'radio',key:'bts',label:'BTS Type',options:['GBT','RTT'],colspan:true});
-      if(v.bts==='GBT') F.push({type:'num',key:'gbtH',label:'GBT Tower Height (mtr)'});
-      if(v.bts==='RTT'){F.push({type:'num',key:'rttTH',label:'RTT Tower Height (mtr)'});F.push({type:'num',key:'rttBH',label:'RTT Building Height (mtr)'});}
-      F.push({type:'num',key:'ubr',label:'UBR Mounting Permission'});F.push({type:'text',key:'rackSpace',label:'Rack Space'});
-      if(v.popType==='Manageable') F.push({type:'info',label:'Manageable: shows all of the above except Reference Number.',read:true,colspan:true});
-      return F;
-    }},
-   {id:'site', title:'Site Information', desc:'Rack & power basics',
-    fields:()=>[
-      {type:'radio',key:'rackType',label:'Rack type',options:['Indoor','Outdoor']},
-      {type:'radio',key:'ac',label:'AC availability',options:['Yes','No']},
-      {type:'radio',key:'pwr',label:'Power source',options:['AC','DC']},
-      {type:'radio',key:'phase',label:'Phase',options:['Single','Three']},
-      {type:'text',key:'pprov',label:'Power provider'},
-    ]},
-   {id:'contact', title:'Contact Information', desc:'Conditional on management type',
-    fields:(v)=>{
-      let F=[{type:'radio',key:'mtype',label:'Management type',options:['Managed','Infra CoLo','Building/Landlord'],colspan:true}];
-      if(v.mtype==='Managed'){
-        F.push({type:'text',key:'rackSpace',label:'Rack Space'});F.push({type:'num',key:'ubr',label:'UBR Mounting Permission'});
-        F.push({type:'text',key:'techN',label:'Technician Name'});F.push({type:'text',key:'techNo',label:'Technician Number'});
-      }
-      if(v.mtype==='Infra CoLo'){
-        F.push({type:'text',key:'refNo',label:'Reference Number'});F.push({type:'text',key:'rackSpace',label:'Rack Space'});F.push({type:'num',key:'ubr',label:'UBR Mounting Permission'});
-        F.push({type:'text',key:'techN',label:'Technician Name'});F.push({type:'text',key:'techNo',label:'Technician Number'});
-        F.push({type:'text',key:'supN',label:'Supervisor Name'});F.push({type:'text',key:'supNo',label:'Supervisor Number'});
-      }
-      if(v.mtype==='Building/Landlord'){
-        F.push({type:'text',key:'spocN',label:'Local SPOC Name'});F.push({type:'text',key:'spocNo',label:'Local SPOC Number'});
-        F.push({type:'text',key:'chairN',label:'Chairman/Landlord Name'});F.push({type:'text',key:'chairNo',label:'Chairman/Landlord Number'});
-      }
-      return F;
-    }},
-   {id:'billing', title:'Billing Information', desc:'PO & commercials',
-    fields:()=>[
-      {type:'text',key:'poNo',label:'PO Number'},{type:'file',key:'poAtt',label:'PO Attachment'},
-      {type:'text',key:'arc',label:'ARC'},{type:'text',key:'otc',label:'OTC'},{type:'select',key:'payCycle',label:'Payment Cycle',options:['Monthly','Quarterly','Annual']},
-    ]},
-   {id:'access', title:'POP Responsibility & Access', desc:'Acceptance & assignments',
-    fields:()=>[
-      {type:'date',key:'accDate',label:'POP acceptance date'},
-      {type:'text',key:'bm',label:'Assigned Branch Manager'},
-      {type:'text',key:'fe',label:'Assigned Field Engineer'},
-      {type:'textarea',key:'access',label:'Access Permission',colspan:true},
-    ]},
-   {id:'backhaul', title:'Connected NLD/Backhaul', desc:'Linked backhauls',
-    fields:()=>[{type:'custom',key:'tbl',render:activeBackhaulTable,colspan:true}]},
-   {id:'inventory', title:'Inventory', desc:'Active & passive devices',
-    fields:(v)=>{
-      let F=[{type:'custom',key:'atbl',render:activeInvTable,colspan:true},
-             {type:'radio',key:'devType',label:'Device detail',options:['Router','Switch'],colspan:true}];
-      if(v.devType==='Switch'){F.push({type:'text',key:'ip',label:'IP address'});F.push({type:'text',key:'mvlan',label:'Management VLAN'});}
-      if(v.devType==='Router'){F.push({type:'text',key:'ip',label:'IP address'});F.push({type:'text',key:'loop',label:'Loopback'});F.push({type:'text',key:'wan',label:'WAN IP'});F.push({type:'text',key:'lan',label:'LAN IP'});F.push({type:'text',key:'mvlan',label:'Management VLAN'});}
-      F.push({type:'custom',key:'ptbl',render:passiveInvTable,colspan:true});
-      return F;
-    }},
-   {id:'rack', title:'Rack & Power Feeds (NetBox)', desc:'Physical infra',
-    fields:()=>[
-      {type:'info',label:'<b>Rack</b>',read:true,colspan:true},
-      {type:'text',key:'rackTypeN',label:'Rack Type'},{type:'text',key:'rackRole',label:'Rack Role'},
-      {type:'text',key:'serial',label:'Serial Number'},{type:'text',key:'asset',label:'Asset Tag'},
-      {type:'text',key:'spaceUtil',label:'Space Utilization'},{type:'text',key:'dimType',label:'Dimensions — Type'},
-      {type:'text',key:'dimW',label:'Width'},{type:'text',key:'dimH',label:'Height'},
-      {type:'info',label:'<b>Power Feeds</b>',read:true,colspan:true},
-      {type:'text',key:'pfType',label:'Type'},{type:'text',key:'pfStatus',label:'Status'},{type:'select',key:'pfSupply',label:'Supply',options:['AC','DC']},
-      {type:'text',key:'pfVolt',label:'Voltage'},{type:'text',key:'pfAmp',label:'Amperage'},{type:'radio',key:'pfPhase',label:'Phase',options:['Single','Three']},
-      {type:'num',key:'pfMax',label:'Max Utilization (%)'},
-    ]},
-   {id:'contract', title:'POP Contract', desc:'Line ID & commercials',
-    fields:(v)=>[
-      {type:'radio',key:'cocat',label:'POP is',options:['Co-Location','Agreement']},
-      {type:'info',label:'<b>Line ID:</b> <span style="font-family:ui-monospace,Consolas,monospace">'+(v.cocat==='Agreement'?'POP-YYYY-seq5-OWN-RCK-&lt;U&gt;':'POP-YYYY-seq5-&lt;infra4&gt;-RCK-&lt;U&gt;')+'</span>',read:true,colspan:true},
-      {type:'text',key:'popCode',label:'POP Code'},{type:'text',key:'addr',label:'Address'},
-      {type:'text',key:'lat',label:'Lat'},{type:'text',key:'long',label:'Long'},
-      {type:'text',key:'arc',label:'ARC'},{type:'text',key:'otc',label:'OTC'},{type:'select',key:'bcycle',label:'Billing Cycle',options:['Monthly','Quarterly','Annual']},
-    ]},
-   {id:'ops', title:'Incident · Change · Invoices · Updates · Attachments', desc:'Operational records',
-    fields:()=>[
-      {type:'info',label:'<b>Incident Management</b> — incident-related details & records.',read:true,colspan:true},
-      {type:'info',label:'<b>Change Management</b> — change request & modification tracking.',read:true,colspan:true},
-      {type:'info',label:'<b>Invoices</b> — invoice records & billing documents.',read:true,colspan:true},
-      {type:'info',label:'<b>Updates</b> — timeline updates & activity logs.',read:true,colspan:true},
-      {type:'file',key:'att',label:'Attachments',multi:true,colspan:true},
-    ]},
+   {id:'list', title:'Active POP — Database', desc:'Read-only list · click View for the full record',
+    fields:()=>[{type:'custom',key:'tbl',render:activePopTable,colspan:true}]},
+   {id:'detail', title:'POP Details', desc:'Read-only record',
+    gate:()=> S.activeView ? {ok:true} : {ok:false,why:'Click “View” on a POP in the database above.'},
+    fields:()=>[{type:'custom',key:'d',render:activeDetail,colspan:true}]},
   ]
 },
 
@@ -1734,23 +1649,70 @@ function submitContract(){
   toast('Contract submitted — PO generated in ZOHO Books · '+contractLineId(v));
   rerender();
 }
-/* ---------- Active POP tables ---------- */
-function activeBackhaulTable(){
-  return `<div class="f full"><label>Connected NLD / Backhaul</label><table class="tbl"><thead><tr><th>Backhaul ID</th><th>Backhaul Name</th><th>Backhaul Type</th><th>Bandwidth</th></tr></thead><tbody>
-   <tr><td>NLD-0007</td><td>AMD ↔ MUM</td><td>NLD / P2P</td><td>1 Gbps</td></tr>
-   <tr><td>ONN-0012</td><td>SG-Hwy ↔ Bopal</td><td>On Net</td><td>500 Mbps</td></tr>
+/* ---------- Active POP database (read-only, mock) ---------- */
+const ACTIVE_POPS=[
+  { id:'POP-2026-00118', name:'Optimal SG-Hwy', popType:'Infra Provider', status:'Active', mtype:'Infra CoLo',
+    gen:{siteId:'SITE-AMD-118',infraProv:'GTPL Infra',refNo:'REF-77231',region:'West',tgroup:'Gujarat',tenant:'Optimal',country:'India',state:'Gujarat',district:'Ahmedabad',city:'Ahmedabad',area:'SG Highway',lat:'23.0412',long:'72.5074'},
+    bts:{type:'GBT',gbtH:'30'}, infra:{ubr:'4',rackSpace:'9U'},
+    site:{rackType:'Outdoor',ac:'Yes',pwr:'AC',phase:'Three',pprov:'Torrent Power'},
+    contact:{refNo:'REF-77231',rackSpace:'9U',ubr:'4',techN:'R. Shah',techNo:'98250-11111',supN:'M. Patel',supNo:'99090-22222'},
+    billing:{poNo:'PO-5521',arc:'₹2,16,000',otc:'₹40,000',payCycle:'Quarterly'},
+    access:{accDate:'2026-05-12',bm:'A. Mehta',fe:'K. Joshi',perm:'24x7 escorted'},
+    backhaul:[['NLD-0007','AMD ↔ MUM','NLD / P2P','1 Gbps'],['ONN-0012','SG-Hwy ↔ Bopal','On Net','500 Mbps']],
+    activeInv:[['MAT-1001','Router','RTR-A1','Cisco','ISR4331','Edge','10.0.0.1'],['MAT-1002','Switch','SW-A1','Juniper','EX2300','Access','10.0.0.2']],
+    passiveInv:[['MAT-2001','ODF','ODF-24','Sterlite','24F','Passive']],
+    rack:{rackType:'4-post',rackRole:'Access',serial:'SN-AMD118',asset:'AST-118',spaceUtil:'9 / 42U',dimType:'19-inch',dimW:'600 mm',dimH:'42U'},
+    pf:{type:'Primary',status:'Active',supply:'AC',volt:'230 V',amp:'32 A',phase:'Three',max:'80%'},
+    contract:{lineId:'POP-2026-00118-GTPL-RCK-9U',popCode:'POP-2026-00118',addr:'SG Highway, Ahmedabad',lat:'23.0412',long:'72.5074',arc:'₹2,16,000',otc:'₹40,000',bcycle:'Quarterly'} },
+  { id:'POP-2026-00061', name:'Optimal Maninagar', popType:'Own', status:'Active', mtype:'Building/Landlord',
+    gen:{siteId:'SITE-AMD-061',infraProv:'—',refNo:'',region:'West',tgroup:'Gujarat',tenant:'Optimal',country:'India',state:'Gujarat',district:'Ahmedabad',city:'Ahmedabad',area:'Maninagar',lat:'22.9963',long:'72.6012'},
+    bts:{type:'RTT',rttTH:'12',rttBH:'18'}, infra:{ubr:'2',rackSpace:'12U'},
+    site:{rackType:'Indoor',ac:'Yes',pwr:'AC',phase:'Single',pprov:'UGVCL'},
+    contact:{spocN:'D. Trivedi',spocNo:'97250-33333',chairN:'H. Society',chairNo:'90990-44444'},
+    billing:{poNo:'—',arc:'₹1,14,000',otc:'₹25,000',payCycle:'Annual'},
+    access:{accDate:'2026-04-02',bm:'A. Mehta',fe:'S. Rana',perm:'9am–6pm key with SPOC'},
+    backhaul:[['NLD-0021','AMD ↔ Surat','NLD / IIL','1 Gbps']],
+    activeInv:[['MAT-1101','Router','RTR-M1','Cisco','ISR4321','Edge','10.1.0.1']],
+    passiveInv:[['MAT-2101','ODF','ODF-12','Sterlite','12F','Passive']],
+    rack:{rackType:'Wall-mount',rackRole:'Access',serial:'SN-AMD061',asset:'AST-061',spaceUtil:'12 / 24U',dimType:'19-inch',dimW:'600 mm',dimH:'24U'},
+    pf:{type:'Primary',status:'Active',supply:'AC',volt:'230 V',amp:'16 A',phase:'Single',max:'70%'},
+    contract:{lineId:'POP-2026-00061-OWN-RCK-12U',popCode:'POP-2026-00061',addr:'Maninagar, Ahmedabad',lat:'22.9963',long:'72.6012',arc:'₹1,14,000',otc:'₹25,000',bcycle:'Annual'} }
+];
+function kv(pairs){ const r=pairs.filter(p=>p[1]!=null&&p[1]!==''); if(!r.length)return ''; return '<div class="kv">'+r.map(p=>`<div class="c"><small>${p[0]}</small><b>${p[1]}</b></div>`).join('')+'</div>'; }
+function sech(t){ return '<div class="sech">'+t+'</div>'; }
+function rtbl(headers,rows){ return `<div class="table-wrap2"><table class="tbl"><thead><tr>${headers.map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody>${rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')}</tbody></table></div>`; }
+function contactPairs(p){ const c=p.contact||{};
+  if(p.mtype==='Managed') return [['Rack Space',c.rackSpace],['UBR Mounting Permission',c.ubr],['Technician Name',c.techN],['Technician Number',c.techNo]];
+  if(p.mtype==='Infra CoLo') return [['Reference Number',c.refNo],['Rack Space',c.rackSpace],['UBR Mounting Permission',c.ubr],['Technician Name',c.techN],['Technician Number',c.techNo],['Supervisor Name',c.supN],['Supervisor Number',c.supNo]];
+  return [['Local SPOC Name',c.spocN],['Local SPOC Number',c.spocNo],['Chairman/Landlord Name',c.chairN],['Chairman/Landlord Number',c.chairNo]];
+}
+function activePopTable(){
+  return `<div class="f full"><table class="tbl"><thead><tr><th>POP ID</th><th>POP Name</th><th>POP Type</th><th>City</th><th>State</th><th>Status</th><th>Action</th></tr></thead><tbody>
+   ${ACTIVE_POPS.map(p=>`<tr><td>${p.id}</td><td>${p.name}</td><td>${p.popType}</td><td>${p.gen.city}</td><td>${p.gen.state}</td><td><span class="tag live">${p.status}</span></td><td><button class="btn sm pri" onclick="viewActivePop('${p.id}')">View</button></td></tr>`).join('')}
   </tbody></table></div>`;
 }
-function activeInvTable(){
-  return `<div class="f full"><label>Active Inventory</label><table class="tbl"><thead><tr><th>Mat Code</th><th>Device Type</th><th>Device Name</th><th>Brand</th><th>Model</th><th>Sub Category</th><th>IP Address</th></tr></thead><tbody>
-   <tr><td>MAT-1001</td><td>Router</td><td>RTR-A1</td><td>Cisco</td><td>ISR4331</td><td>Edge</td><td>10.0.0.1</td></tr>
-   <tr><td>MAT-1002</td><td>Switch</td><td>SW-A1</td><td>Juniper</td><td>EX2300</td><td>Access</td><td>10.0.0.2</td></tr>
-  </tbody></table></div>`;
-}
-function passiveInvTable(){
-  return `<div class="f full"><label>Passive Inventory</label><table class="tbl"><thead><tr><th>Mat Code</th><th>Device Type</th><th>Device Name</th><th>Brand</th><th>Model</th><th>Sub Category</th></tr></thead><tbody>
-   <tr><td>MAT-2001</td><td>ODF</td><td>ODF-24</td><td>—</td><td>24F</td><td>Passive</td></tr>
-  </tbody></table></div>`;
+function viewActivePop(id){ S.activeView=id; S.collapsed['active.list']=true; S.collapsed['active.detail']=false; rerender(); }
+function closeActivePop(){ S.activeView=null; S.collapsed['active.list']=false; rerender(); }
+function activeDetail(){
+  const p=ACTIVE_POPS.find(x=>x.id===S.activeView);
+  if(!p) return '<div class="f full"><div class="info read">Click “View” on a POP in the database above.</div></div>';
+  const g=p.gen;
+  let h=`<div style="margin-bottom:12px"><button class="btn sm" onclick="closeActivePop()">← Back to list</button> &nbsp;<b>${p.id} · ${p.name}</b> <span class="tag live">${p.status}</span></div>`;
+  h+=sech('General Information')+kv([['POP ID',p.id],['POP Type',p.popType],['POP Name',p.name],['Site ID',g.siteId],['Infra Provider',g.infraProv],['Reference Number',g.refNo],['Region',g.region],['Tenant Group',g.tgroup],['Tenant',g.tenant],['Country',g.country],['State',g.state],['District',g.district],['City/Village',g.city],['Area',g.area],['Lat',g.lat],['Long',g.long]]);
+  h+=sech('BTS Type')+kv(p.bts.type==='GBT'?[['BTS Type','GBT'],['GBT Tower Height (mtr)',p.bts.gbtH]]:[['BTS Type','RTT'],['RTT Tower Height (mtr)',p.bts.rttTH],['RTT Building Height (mtr)',p.bts.rttBH]]);
+  h+=kv([['UBR Mounting Permission',p.infra.ubr],['Rack Space',p.infra.rackSpace]]);
+  h+=sech('Site Information')+kv([['Rack type',p.site.rackType],['AC availability',p.site.ac],['Power source',p.site.pwr],['Phase',p.site.phase],['Power provider',p.site.pprov]]);
+  h+=sech('Contact Information — '+p.mtype)+kv(contactPairs(p));
+  h+=sech('Billing Information')+kv([['PO Number',p.billing.poNo],['ARC',p.billing.arc],['OTC',p.billing.otc],['Payment Cycle',p.billing.payCycle]]);
+  h+=sech('POP Responsibility & Access')+kv([['POP acceptance date',p.access.accDate],['Assigned Branch Manager',p.access.bm],['Assigned Field Engineer',p.access.fe],['Access Permission',p.access.perm]]);
+  h+=sech('Connected NLD / Backhaul')+rtbl(['Backhaul ID','Backhaul Name','Backhaul Type','Bandwidth'],p.backhaul);
+  h+=sech('Inventory — Active')+rtbl(['Mat Code','Device Type','Device Name','Brand','Model','Sub Category','IP Address'],p.activeInv);
+  h+=sech('Inventory — Passive')+rtbl(['Mat Code','Device Type','Device Name','Brand','Model','Sub Category'],p.passiveInv);
+  h+=sech('Rack (NetBox)')+kv([['Rack Type',p.rack.rackType],['Rack Role',p.rack.rackRole],['Serial Number',p.rack.serial],['Asset Tag',p.rack.asset],['Space Utilization',p.rack.spaceUtil],['Dimensions Type',p.rack.dimType],['Width',p.rack.dimW],['Height',p.rack.dimH]]);
+  h+=sech('Power Feeds (NetBox)')+kv([['Type',p.pf.type],['Status',p.pf.status],['Supply',p.pf.supply],['Voltage',p.pf.volt],['Amperage',p.pf.amp],['Phase',p.pf.phase],['Max Utilization',p.pf.max]]);
+  h+=sech('POP Contract')+kv([['Line ID',p.contract.lineId],['POP Code',p.contract.popCode],['Address',p.contract.addr],['Lat',p.contract.lat],['Long',p.contract.long],['ARC',p.contract.arc],['OTC',p.contract.otc],['Billing Cycle',p.contract.bcycle]]);
+  h+=sech('Operations')+'<div class="info read">Incident Management · Change Management · Invoices · Updates · Attachments</div>';
+  return '<div class="f full">'+h+'</div>';
 }
 function dataFlow(steps){
   return '<div class="dflow">'+steps.map((s,i)=>{
@@ -1991,7 +1953,7 @@ function renderGaps(){
 
 /* ---------- reset ---------- */
 function resetDemo(){
-  S.values={}; S.collapsed={}; S.requests=[]; S.contracts=[]; SEQ=1; GENPOP=1; S.showData=false;
+  S.values={}; S.collapsed={}; S.requests=[]; S.contracts=[]; S.activeView=null; SEQ=1; GENPOP=1; S.showData=false;
   S.flags={popRaised:false,popCode:null,popStage1Done:false,popStage3Done:false,nldGoLive:false};
   go('jobid'); toast('Demo state reset.');
 }
