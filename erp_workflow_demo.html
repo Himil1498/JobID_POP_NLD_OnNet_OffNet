@@ -1635,6 +1635,43 @@ function dataFlow(steps){
     return h;
   }).join('')+'</div>';
 }
+function renderMasterFlow(){
+  const N=(x,y,w,h,t,sub,cls)=>`<g><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="9" class="fxnode ${cls||''}"/><text x="${x+w/2}" y="${y+(sub?h/2-3:h/2+5)}" class="fxtitle">${t}</text>${sub?`<text x="${x+w/2}" y="${y+h/2+13}" class="fxsub">${sub}</text>`:''}</g>`;
+  const T=(x,y,t,a)=>`<text x="${x}" y="${y}" class="fxsub" text-anchor="${a||'middle'}">${t}</text>`;
+  const E=(d,cls)=>`<path d="${d}" fill="none" class="fxedge ${cls||''}" ${/fb|reg/.test(cls||'')?'stroke-dasharray="6 5"':''} marker-end="url(#mfarr)"/>`;
+  const pc=S.flags.popCode||'POP-YYYY-seq5';
+  return `<div class="fxwrap"><svg class="fxsvg" viewBox="0 0 940 700" role="img" aria-label="End-to-end stage flow">
+   <defs><marker id="mfarr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#94a3b8"/></marker></defs>
+   ${E('M470,68 V110')}${E('M470,154 V196')}${E('M470,240 V282')}${E('M470,326 V368')}${E('M470,412 V454')}${E('M470,498 V540')}${E('M470,584 V626')}
+   ${E('M360,132 H250')}
+   ${E('M160,154 V220','reg')}
+   ${E('M250,132 H300 V390 H360','fb')}
+   ${E('M580,304 H700')}
+   ${E('M580,304 H640 V381 H700')}
+   ${E('M580,648 H700')}
+   ${E('M790,626 V562 H580','fb')}
+   ${T(305,126,'Backhaul = NLD')}
+   ${T(196,188,'New L2/L1','start')}
+   ${T(308,300,'child POP · Install → S4','start')}
+   ${T(640,298,'after POP code')}
+   ${T(655,345,'after POP code','start')}
+   ${T(640,642,'Line ID + PO')}
+   ${T(795,596,'stored in Active','start')}
+   ${N(360,24,220,44,'Job ID List','entry · decision','entry')}
+   ${N(360,110,220,44,'POP Feasibility','Stage 1 · backhaul type','hub')}
+   ${N(360,196,220,44,'Survey → Juggle','Stage 2','hub')}
+   ${N(360,282,220,44,'POP Code','Stage 3 · '+pc,'reg')}
+   ${N(360,368,220,44,'PO / Agreement','Stage 4–5','hub')}
+   ${N(360,454,220,44,'PR pipeline','Rack→Device→Cables→Prov.','term')}
+   ${N(360,540,220,44,'Active POP','provisioned','entry')}
+   ${N(360,626,220,44,'POP Contract','add-on / new / renew')}
+   ${N(70,110,180,44,'NLD / Backhaul','Stage 1–8')}
+   ${N(70,220,180,40,'L1/L2POI','registry','reg')}
+   ${N(700,282,200,42,'On Net Backhaul')}
+   ${N(700,360,200,42,'Off Net POP↔POP')}
+   ${N(700,626,180,44,'PO · ZOHO Books','→ Active POP','reg')}
+  </svg></div>`;
+}
 function renderWorkflow(){
   const order=['jobid','pop','nld','onnet','offcust','offp2p','contract','l2poi'];
   const intro={
@@ -1704,14 +1741,23 @@ function renderWorkflow(){
     {t:'PR Stage 4 — Provisioning',s:'Capture + 3-day observation',e:'observation'},
     {t:'Stage 6 — Acceptance',s:'POP acceptance → Active tab',e:''}
   ];
+  const contractSteps=[
+    {t:'Select POP',s:'POP name + code (incl. this job)',e:'mode',key:1},
+    {t:'Mode',s:'Add-on / New contract / Agreement renew',e:'fields'},
+    {t:'Line ID',s:'POP Code · provider/OWN · RCK · U space',e:'submit'},
+    {t:'Submit → PO',s:'PO generates in ZOHO Books',e:'store'},
+    {t:'Active POP',s:'contract stored against the POP Code',e:''}
+  ];
   const diagrams=`<div class="dwrap">
     <div class="dcol"><h4>📡 POP Feasibility — data flow</h4>${dataFlow(popSteps)}</div>
     <div class="dcol"><h4>🛰️ NLD / Backhaul — data flow</h4>${dataFlow(nldSteps)}</div>
     <div class="dcol"><h4>🔗 On Net Backhaul — data flow</h4>${dataFlow(onnetSteps)}</div>
     <div class="dcol"><h4>🔀 Off Net (POP↔POP) — data flow</h4>${dataFlow(offSteps)}</div>
+    <div class="dcol"><h4>🧾 POP Contract — data flow</h4>${dataFlow(contractSteps)}</div>
   </div>`;
 
-  let html='<p class="muted" style="margin:0 0 14px">Stage-wise data flow for the POP Feasibility hub and the three backhaul types. Each box is a stage; the connector line shows what data flows to the next stage; <span style="color:#b45309">orange ⤳</span> notes a conditional side-output. Full per-module stage details below.</p>'+diagrams;
+  let html='<p class="muted" style="margin:0 0 12px">End-to-end stage flow with interconnecting lines (Visio-style). Center = the POP spine; left = NLD &amp; L1/L2POI; right = On/Off-Net backhaul and the POP Contract → ZOHO PO loop. <span style="color:#b45309">dashed orange</span> = feedback, <span style="color:#2563eb">dashed</span> = registry/PO link.</p>'+renderMasterFlow();
+  html+='<h3 style="margin:24px 0 10px;font-size:15px">Per-module data flow</h3>'+diagrams;
   html+='<h3 style="margin:24px 0 10px;font-size:15px">All modules — stage details</h3>';
   order.forEach((mod,mi)=>{
     const M=MODULES[mod];
