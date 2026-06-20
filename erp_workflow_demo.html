@@ -795,29 +795,22 @@ nld:{ title:'NLD / Backhaul Feasibility', sub:'Parallel to POP — draft appears
       F.push({type:'info',label:'<b>A End (Origin Point) — handoff</b>',read:true,colspan:true});
       F.push({type:'radio',key:'aHandoff',label:'A End Handoff Type',options:['Direct','On Net','Off Net'],colspan:true});
       if(v.aHandoff==='On Net') F.push({type:'radio',key:'aOnNetType',label:'A End On Net Type',options:['Wireless','Wireline','Ring'],colspan:true});
+      // A End Parent POP appears when the selected D End BTS is New L1 / New L2 (Stage 2)
+      if(selKind==='New L1' || selKind==='New L2') F.push({type:'select',key:'aParentPop',label:'A End Parent POP',hint:'(New '+selKind+' in Stage 2 — BTS hangs off this POP)',options:popList()});
+      // A End On Net / Off Net → a new POP must be created → raise POP Feasibility request (carries NLD reference)
       if(v.aHandoff==='On Net' || v.aHandoff==='Off Net'){
-        // Parent Node (acts as the A-End) appears when the selected D End BTS is New L1 / New L2
-        if(selKind==='New L1' || selKind==='New L2')
-          F.push({type:'select',key:'aParentPop',label:'A End Parent Node',hint:'(acts as the A-End · New '+selKind+')',options:popList()});
-        F.push({type:'radio',key:'aStartStage',label:'Start A-End POP Feasibility from',options:['Stage 2','Stage 3'],colspan:true});
-        const rA=S.requests.some(r=>r.type==='nld-aend'&&r.module==='pop');
-        F.push({type:'info',label:'⚠ A End <b>'+v.aHandoff+'</b>: <b>Parent Node acts as the A-End</b>; the telco new A-End becomes a <b>new POP Feasibility (child)</b> + a new <b>'+v.aHandoff+'</b> request (existing flow). '+(rA?'<span class="tag live">Requests generated · NLD ref</span>':'Use the “Generate A-End requests” button below.'),colspan:true});
+        const raised=S.requests.some(r=>r.module==='pop' && r.type==='nld-aend');
+        F.push({type:'info',label:'⚠ A End handoff is <b>'+v.aHandoff+'</b> → a <b>new POP must be created</b> for the A End. '+(raised?'<span class="tag live">Request generated in POP Feasibility (NLD ref)</span>':'Use “Generate POP Feasibility request (A End)” below — it carries the NLD reference.'),colspan:true});
       }
-      // ---- D End (Destination = actual Job requested) ----
+      // ---- D End (Destination Point) handoff ----
       F.push({type:'info',label:'<b>D End (Destination Point) — handoff</b>',read:true,colspan:true});
       F.push({type:'radio',key:'dHandoff',label:'D End Handoff Type',options:['Direct','On Net','Off Net'],colspan:true});
       if(v.dHandoff==='On Net') F.push({type:'radio',key:'dOnNetType',label:'D End On Net Type',options:['Wireless','Wireline','Ring'],colspan:true});
-      if(v.dHandoff==='On Net' || v.dHandoff==='Off Net'){
-        F.push({type:'radio',key:'dStartStage',label:'Start D-End POP Feasibility from',options:['Stage 2','Stage 3'],colspan:true});
-        const rD=S.requests.some(r=>r.type==='nld-dend'&&r.module==='pop');
-        F.push({type:'info',label:'⚠ D End <b>'+v.dHandoff+'</b>: <b>no parent node</b> — D End is the <b>actual job requested (child node)</b>. Creates a <b>new POP Feasibility (child)</b> + a new <b>'+v.dHandoff+'</b> request (existing flow). '+(rD?'<span class="tag live">Requests generated · NLD ref</span>':'Use the “Generate D-End requests” button below.'),colspan:true});
-      }
-      // ---- derived scenario + A–B–C–D connectivity ----
+      if(v.dHandoff && v.dHandoff!=='Direct') F.push({type:'select',key:'dParentPop',label:'D End Parent POP',hint:'(BTS hangs off this POP)',options:popList()});
+      // ---- derived scenario (matches the topology diagram) ----
       const sc=nldScenario(v.aHandoff,v.dHandoff);
       if(sc) F.push({type:'info',label:'🔎 '+sc,colspan:true});
-      const chain=nldChain(v);
-      if(chain) F.push({type:'info',label:'🧭 <b>A–B–C–D connectivity:</b> '+chain,read:true,colspan:true});
-      // ---- POP feasibility flag ----
+      // ---- POP feasibility ----
       F.push({type:'radio',key:'popReq',label:'POP Feasibility Required',options:['Yes','No']});
       if(v.popReq==='No') F.push({type:'info',label:'→ Direct PO placement (POP Feasibility Stage 3).',colspan:true});
       if(v.popReq==='Yes') F.push({type:'info',label:'→ POP Feasibility Stage 2.',colspan:true});
@@ -825,10 +818,8 @@ nld:{ title:'NLD / Backhaul Feasibility', sub:'Parallel to POP — draft appears
     },
     actions:(v)=>{
       const a=[{label:'Submit D End Selection',cls:'pri',enabled:true,onClick:'toast(\'D End BTS & topology saved\')'}];
-      if((v.aHandoff==='On Net'||v.aHandoff==='Off Net') && !S.requests.some(r=>r.type==='nld-aend'&&r.module==='pop'))
-        a.push({label:'Generate A-End requests (POP + '+v.aHandoff+')',cls:'',enabled:true,onClick:'nldEndGen("a")'});
-      if((v.dHandoff==='On Net'||v.dHandoff==='Off Net') && !S.requests.some(r=>r.type==='nld-dend'&&r.module==='pop'))
-        a.push({label:'Generate D-End requests (POP + '+v.dHandoff+')',cls:'',enabled:true,onClick:'nldEndGen("d")'});
+      if((v.aHandoff==='On Net'||v.aHandoff==='Off Net') && !S.requests.some(r=>r.module==='pop'&&r.type==='nld-aend'))
+        a.push({label:'Generate POP Feasibility request (A End)',cls:'',enabled:true,onClick:'nldAEndNewPop()'});
       return a;
     }},
 
@@ -1213,15 +1204,6 @@ function nldScenario(a,d){
   if(!ad&&!dd) return '<b>Scenario 2 — Backhaul at Both Ends</b> · A →BTS→ NLD →BTS→ D (last mile at both ends)';
   return '<b>Scenario 3 — Backhaul at one end, Direct at other</b> · '+(ad?'A End Direct, D End '+d:'A End '+a+', D End Direct');
 }
-function nldChain(v){
-  if(!v.aHandoff || !v.dHandoff) return null;
-  const seg=[];
-  if(v.aHandoff==='Direct') seg.push('<b>A</b> = A End (Origin)');
-  else { seg.push('<b>A</b> = '+(v.aParentPop?String(v.aParentPop).split(' · ')[0]:'Parent Node')+' (acts as A-End)'); seg.push('<b>B</b> = New A-side POP ('+v.aHandoff+' · child)'); }
-  if(v.dHandoff==='Direct') seg.push('<b>D</b> = D End (Job requested)');
-  else { seg.push('<b>C</b> = New D-side POP ('+v.dHandoff+' · child)'); seg.push('<b>D</b> = D End (Job requested · child)'); }
-  return seg.join(' &nbsp;→&nbsp; ');
-}
 function connectedBackhaulSummary(){
   const r=S.requests.filter(x=>['nld','onnet','offp2p'].includes(x.module));
   return r.length? r.map(x=>x.id+' ('+MODULES[x.module].title.split('—')[0].trim()+')').join(', ') : '— none yet —';
@@ -1341,22 +1323,10 @@ function nldGoLive(){
   toast('NLD Go-Live recorded → POP task module gate satisfied (G7). Stage 6 enabled.');
   rerender();
 }
-function nldEndGen(side){
-  const v=vstore('nld','s2b');
-  const ho = side==='a'? v.aHandoff : v.dHandoff;
-  if(ho!=='On Net' && ho!=='Off Net'){ toast('Set the handoff to On Net / Off Net first.'); return; }
-  const tag = side==='a'?'nld-aend':'nld-dend';
-  if(S.requests.some(r=>r.type===tag && r.module==='pop')){ toast('Requests already generated for this end.'); return; }
-  const endName = side==='a'?'A End':'D End';
-  const startStage = (side==='a'? v.aStartStage : v.dStartStage) || 'Stage 2';
-  const node = side==='a' ? ('child of '+(v.aParentPop?String(v.aParentPop).split(' · ')[0]:'Parent Node')) : 'child node (actual job)';
-  // 1) POP Feasibility (child) — optionable start stage
-  raise('pop', tag, 'NLD — '+endName, 'New POP (child) for NLD '+endName+' · start '+startStage+' · '+node, 'New · from '+startStage);
-  // 2) On/Off Net backhaul request on the same side (existing flow)
-  if(ho==='On Net') raise('onnet', tag, 'NLD — '+endName, 'On Net backhaul for NLD '+endName+' · NLD ref', 'New · NLD ref');
-  else raise('offp2p', tag, 'NLD — '+endName, 'Off Net backhaul for NLD '+endName+' · NLD ref', 'New · NLD ref');
+function nldAEndNewPop(){
+  if(S.requests.some(r=>r.module==='pop' && r.type==='nld-aend')){ toast('A End POP request already generated.'); return; }
   S.flags.popRaised=true;
-  toast(endName+': POP Feasibility (from '+startStage+') + '+ho+' request generated · NLD reference.');
+  raise('pop','nld-aend','NLD — A End handoff','New POP for NLD A End (carries NLD reference)','New · NLD ref');
   rerender();
 }
 function genNldId(){
