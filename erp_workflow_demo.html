@@ -1191,7 +1191,7 @@ function nldTopology(v){
     ? ['Parent POP(A)'+(v.aParentPop?': '+nldShort(v.aParentPop):''), 'New A POP']
     : ['A End'+(v.aType?' (Existing)':'')];
   let right = nldIsNew(v.bType)
-    ? ['New B POP', 'Parent POP(B)'+(v.bParentPop?': '+nldShort(v.bParentPop):'')]
+    ? ['New B POP', 'Child POP'+(nldJobPopId()?': '+nldJobPopId():'')]
     : [];
   return [...left, job, ...right].join(' → ');
 }
@@ -1206,7 +1206,10 @@ function nldRefMap(v){
   const popReq=(S.requests.find(r=>r.module==='pop'&&r.type==='feasibility')||{}).id||'(POP req)';
   let html='📑 <b>Reference map (generated child requests):</b>';
   ends.forEach(end=>{
-    html+='<br>• <b>'+end.toUpperCase()+' End</b> — Job '+jobId+' · POP Req '+popReq+' · Parent NLD (current) · Parent POP '+(nldShort(v[end+'ParentPop'])||'?')+' · Generated POP '+(vstore('nld','s2b')[end+'GenPop']||'?')+' · '+v[end+'Transport']+' · '+v[end+'Handoff'];
+    const node = end==='a'
+      ? 'Parent POP '+(nldShort(v.aParentPop)||'?')+' · Generated POP '+(vstore('nld','s2b').aGenPop||'?')
+      : 'Child POP (POP Feasibility) '+(nldJobPopId()||'?');
+    html+='<br>• <b>'+end.toUpperCase()+' End</b> — Job '+jobId+' · POP Req '+popReq+' · Parent NLD (current) · '+node+' · '+v[end+'Transport']+' · '+v[end+'Handoff'];
   });
   return html;
 }
@@ -1331,31 +1334,43 @@ function nldGoLive(){
 }
 function nldIsNew(t){ return t==='New L1' || t==='New L2'; }
 function nldShort(x){ return x?String(x).split(' · ')[0]:''; }
+// The original POP Feasibility request initiated from Job ID List (the Job POP / B End child)
+function nldJobPopId(){ const r=S.requests.find(x=>x.module==='pop' && x.type==='feasibility'); return r?r.id:null; }
 // Build the per-end config fields (Step 5-8): Handoff → Parent POP (always) → Transport (On/Off Net)
 function nldEndBlock(F,v,end){
   if(!nldIsNew(v[end+'Type'])) return;            // Existing → no extra config
   const E=end.toUpperCase();
   F.push({type:'radio',key:end+'Handoff',label:E+' End Handoff Type',options:['Direct','On Net','Off Net'],colspan:true});
   const ho=v[end+'Handoff'];
-  if(ho==='Direct'){
-    F.push({type:'select',key:end+'ParentPop',label:E+' End Parent POP',options:popList()});
-  } else if(ho==='On Net' || ho==='Off Net'){
-    F.push({type:'select',key:end+'ParentPop',label:E+' End Parent POP',options:popList()});
-    F.push({type:'radio',key:end+'Transport',label:E+' End Transport Type',options:['Wireless','Wireline','Ring'],colspan:true});
+  if(!ho) return;
+  if(end==='a'){
+    // A End: Parent POP (select) — excluded for Direct
+    if(ho!=='Direct') F.push({type:'select',key:'aParentPop',label:'A End Parent POP',options:popList()});
+  } else {
+    // B End: Child POP = the original POP Feasibility ID (final point · connectivity via NLD)
+    const jp=nldJobPopId();
+    F.push({type:'info',label:'<b>B End Child POP</b> — POP Feasibility ID (initiated from Job ID List): <b>'+(jp||'(no POP Feasibility request yet)')+'</b> · final point, connectivity achieved via NLD.',read:true,colspan:true});
   }
+  if(ho==='On Net' || ho==='Off Net') F.push({type:'radio',key:end+'Transport',label:E+' End Transport Type',options:['Wireless','Wireline','Ring'],colspan:true});
 }
 // Step 11/Rule 7-8: On/Off Net New end → POP Feasibility request + On/Off-Net request (reconciled)
 function nldEndReconcile(end){
   const v=vstore('nld','s2b');
-  const ho=v[end+'Handoff'], transport=v[end+'Transport'], parent=v[end+'ParentPop'];
+  const ho=v[end+'Handoff'], transport=v[end+'Transport'];
   const need=nldIsNew(v[end+'Type']) && (ho==='On Net'||ho==='Off Net') && !!transport;
   const popTag='nld-'+end+'-pop', netTag='nld-'+end+'-net';
-  const exists=S.requests.some(r=>r.type===popTag);
+  const makePop=(end==='a');                 // A End = new POP; B End reuses the Job POP Feasibility
+  const exists=S.requests.some(r=>r.type===netTag);
   if(need && !exists){
-    const gen=v[end+'GenPop'] || (v[end+'GenPop']='POP-NEW-'+end.toUpperCase()+String(GENPOP++).padStart(2,'0'));
-    S.flags.popRaised=true;
-    raise('pop',popTag,'NLD '+end.toUpperCase()+' End','POP Feasibility (child) '+gen+' · parent '+(nldShort(parent)||'?')+' · '+ho+'/'+transport,'New · NLD ref');
-    raise(ho==='On Net'?'onnet':'offp2p',netTag,'NLD '+end.toUpperCase()+' End',ho+' request '+gen+' · '+transport,'New · NLD ref');
+    let pop;
+    if(makePop){
+      pop=v.aGenPop || (v.aGenPop='POP-NEW-A'+String(GENPOP++).padStart(2,'0'));
+      S.flags.popRaised=true;
+      raise('pop',popTag,'NLD A End','POP Feasibility (child) '+pop+' · parent '+(nldShort(v.aParentPop)||'?')+' · '+ho+'/'+transport,'New · NLD ref');
+    } else {
+      pop=nldJobPopId()||'(Job POP)';
+    }
+    raise(ho==='On Net'?'onnet':'offp2p',netTag,'NLD '+end.toUpperCase()+' End',ho+' request '+pop+' · '+transport,'New · NLD ref');
   } else if(!need && exists){
     S.requests=S.requests.filter(r=>r.type!==popTag && r.type!==netTag);
     delete v[end+'GenPop']; renderNav();
