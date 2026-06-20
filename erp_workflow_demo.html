@@ -100,6 +100,26 @@
   .fnode p{margin:0;color:var(--muted);font-size:12px}
   .farrow{align-self:center;color:#94a3b8;font-size:20px;margin:6px 0}
   .frow{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  /* SVG flow diagram */
+  .fxwrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh);padding:10px;margin-bottom:18px;overflow-x:auto}
+  .fxsvg{width:100%;height:auto;min-width:760px;display:block}
+  .fxnode{fill:#fff;stroke:#cbd5e1;stroke-width:1.5}
+  .fxnode.hub{fill:#eff4ff;stroke:#2563eb;stroke-width:2.5}
+  .fxnode.entry{fill:#eaf7ef;stroke:#15803d;stroke-width:2}
+  .fxnode.reg{fill:#fff4e2;stroke:#b45309}
+  .fxnode.term{fill:#f1f5f9;stroke:#475569}
+  .fxtitle{font:600 13px 'Segoe UI',system-ui,sans-serif;fill:#1f2733;text-anchor:middle}
+  .fxsub{font:400 10.5px 'Segoe UI',system-ui,sans-serif;fill:#64748b;text-anchor:middle}
+  .fxedge{fill:none;stroke:#94a3b8;stroke-width:2}
+  .fxedge.fb{stroke:#f59e0b}
+  .fxedge.reg{stroke:#3b82f6}
+  .fxbadge{fill:#1f2937}
+  .fxbnum{fill:#fff;font:700 11px sans-serif;text-anchor:middle}
+  .fxleg{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px}
+  .fxleg .row{display:flex;gap:9px;font-size:12.5px;align-items:flex-start}
+  .fxleg .n{flex:0 0 20px;height:20px;border-radius:20px;background:#1f2937;color:#fff;font-weight:700;font-size:11px;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}
+  .fxleg .n.fb{background:#f59e0b}.fxleg .n.reg{background:#3b82f6}
+  @media(max-width:760px){.fxleg{grid-template-columns:1fr}}
   .toast{position:fixed;bottom:22px;right:22px;background:#0f172a;color:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;max-width:340px;z-index:50;opacity:0;transform:translateY(10px);transition:.25s}
   .toast.show{opacity:1;transform:none}
   .pillrow{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 16px}
@@ -1487,29 +1507,63 @@ function rerender(){ render(); }
 
 function renderFlow(){
   const f=S.flags;
-  const chk=(b)=>b?'<span class="tag ok">done</span>':'<span class="tag draft">pending</span>';
-  return `
-  <div class="legend">
-    <span><span class="tag ok">done</span> milestone reached</span>
-    <span><span class="tag draft">pending</span> not yet</span>
-    <span><span class="tag warn">waiting</span> blocked by dependency</span>
-  </div>
-  <div class="flow">
-    <div class="fnode"><h3>1 · Job ID List ${chk(f.popRaised)}</h3><p>Decision tree. If POP unavailable → raises POP Feasibility. If Off Net Broadband/Sim/Dark-Fiber → seeds Off Net (End Customer).</p></div>
-    <div class="farrow">↓ raises</div>
-    <div class="fnode"><h3>2 · POP Feasibility — Stage 1 ${chk(f.popStage1Done)}</h3><p>Backhaul type chosen here. <b>NLD</b> draft appears <u>immediately</u>; <b>On Net / Off Net P2P</b> wait for the POP code (Stage 3).</p></div>
-    <div class="frow" style="margin:6px 0">
-      <div class="fnode"><h3>3a · NLD Feasibility</h3><p>Starts after Stage 1. Feeds Installation details back to POP Stage 4. Go-Live gates POP task.</p></div>
-      <div class="fnode"><h3>3b · On Net Backhaul</h3><p>${f.popStage3Done?'<span class="tag live">unlocked</span>':'<span class="tag warn">waiting for POP code</span>'}</p></div>
-      <div class="fnode"><h3>3c · Off Net P2P</h3><p>${f.popStage3Done?'<span class="tag live">unlocked</span>':'<span class="tag warn">waiting for POP code</span>'}</p></div>
-    </div>
-    <div class="farrow">↓ Stage 2 survey → Juggle → Stage 3</div>
-    <div class="fnode"><h3>POP Stage 3 · POP Code ${chk(f.popStage3Done)}</h3><p>${f.popCode?('Generated <b>'+f.popCode+'</b> — unlocks On Net & Off Net P2P.'):'Generating the POP code (POP-YYYY-seq5) unlocks On Net & Off Net P2P backhaul.'}</p></div>
-    <div class="farrow">↓ parallel feedback loops</div>
-    <div class="fnode"><h3>POP Stage 4 ↔ NLD/On Net Installation</h3><p>Installation (Juggle-1) details surface here for <b>Approve / Revalidate</b>. Revalidate → back to FE.</p></div>
-    <div class="farrow">↓</div>
-    <div class="fnode"><h3>PR pipeline → Provisioning → 3-day Observation → Acceptance → Active</h3><p>Rack/Power (NetBox) → Device (conditional on backhaul) → Cables → Last Mile (On Net) / Task → Provisioning → Observation → POP/Circuit Active.</p></div>
+  const cnt=m=>{const n=reqsFor(m).length;return n?' ('+n+')':'';};
+  // node helper
+  const node=(x,y,w,h,title,sub,cls)=>`<g>
+     <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" class="fxnode ${cls||''}"/>
+     <text x="${x+w/2}" y="${y+(sub?h/2-3:h/2+5)}" class="fxtitle">${title}</text>
+     ${sub?`<text x="${x+w/2}" y="${y+h/2+13}" class="fxsub">${sub}</text>`:''}</g>`;
+  const edge=(x1,y1,x2,y2,cls)=>`<path d="M ${x1} ${y1} L ${x2} ${y2}" class="fxedge ${cls||''}" ${/fb|reg/.test(cls||'')?'stroke-dasharray="6 5"':''} marker-end="url(#fxarr)"/>`;
+  const badge=(n,x,y,cls)=>`<circle cx="${x}" cy="${y}" r="11" class="fxbadge" ${cls==='fb'?'fill="#f59e0b"':cls==='reg'?'fill="#3b82f6"':''}/><text x="${x}" y="${y+4}" class="fxbnum">${n}</text>`;
+  const popLbl = f.popCode ? f.popCode : (f.popRaised?'request raised':'POP-YYYY-seq5');
+
+  const svg=`<div class="fxwrap"><svg class="fxsvg" viewBox="0 0 940 560" role="img" aria-label="Module flow diagram">
+    <defs><marker id="fxarr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#94a3b8"/></marker></defs>
+    <!-- edges first (under nodes) -->
+    ${edge(510,84,510,140)}
+    ${edge(605,66,712,150)}
+    ${edge(410,186,250,300)}
+    ${edge(610,168,660,310)}
+    ${edge(610,198,660,392)}
+    ${edge(510,210,510,470)}
+    ${edge(292,322,408,206,'fb')}
+    ${edge(180,300,180,202,'reg')}
+    <!-- nodes -->
+    ${node(410,30,200,54,'Job ID List','entry · decision tree','entry')}
+    ${node(410,140,200,72,'POP Feasibility','hub · Stage 1–7 + PR','hub')}
+    ${node(70,150,220,52,'L1/L2POI','registry','reg')}
+    ${node(660,150,250,52,'Off Net — End Customer'+cnt('offcust'),'Broadband / Dark Fiber')}
+    ${node(70,300,220,72,'NLD / Backhaul'+cnt('nld'),'Feasibility · Stage 3 topology')}
+    ${node(660,290,250,52,'On Net Backhaul'+cnt('onnet'),f.popStage3Done?'unlocked':'waiting for POP code')}
+    ${node(660,372,250,52,'Off Net — POP↔POP'+cnt('offp2p'),f.popStage3Done?'unlocked':'waiting for POP code')}
+    ${node(380,470,260,56,'PR → Provisioning → Active','3-day observation → acceptance','term')}
+    <!-- POP code chip -->
+    <text x="510" y="232" class="fxsub">POP code: ${popLbl}</text>
+    <!-- badges -->
+    ${badge(1,510,112)}${badge(2,648,108)}${badge(3,338,238)}${badge(4,636,236)}${badge(5,636,300)}${badge(6,510,344)}${badge(7,332,256,'fb')}${badge(8,180,250,'reg')}
+  </svg></div>`;
+
+  const L=[
+    ['1','','<b>Job ID List → POP Feasibility.</b> When the chosen last-mile has <b>POP Availability = No</b>, the Job raises a POP Feasibility request (with reason).'],
+    ['2','','<b>Job ID List → Off Net (End Customer).</b> Off Net <i>Broadband / Sim Card / Dark Fiber</i> jobs seed the Off Net End-Customer flow directly.'],
+    ['3','','<b>POP Feasibility → NLD.</b> Stage 1 Backhaul = <b>NLD</b> → an NLD/Backhaul draft appears <u>immediately</u> (parallel to POP).'],
+    ['4','','<b>POP Feasibility → On Net Backhaul.</b> Backhaul = On Net → request <b>initiates after Stage 3</b> (once the POP code exists).'],
+    ['5','','<b>POP Feasibility → Off Net POP↔POP.</b> Backhaul = Off Net → also initiates <b>after Stage 3</b> (POP code).'],
+    ['6','','<b>POP Feasibility → PR → Active.</b> Stage 6 Material Request feeds the PR pipeline (Rack/Power → Device → Cables → Last-Mile/Task → Provisioning → 3-day observation → Active).'],
+    ['7','fb','<b>NLD ⤴ POP Feasibility (feedback).</b> NLD Stage 3: a <b>New</b> end with On/Off-Net handoff auto-generates a <b>child POP Feasibility</b> + On/Off-Net request; Installation (Juggle) details also return to <b>POP Stage 4</b> for Approve/Revalidate. <i>B End Child POP = the Job POP code.</i>'],
+    ['8','reg','<b>NLD ↔ L1/L2POI.</b> New L2/L1 ends register in the L1/L2POI interconnect registry.']
+  ];
+  const legend=`<div class="fxleg">${L.map(r=>`<div class="row"><span class="n ${r[1]}">${r[0]}</span><span>${r[2]}</span></div>`).join('')}</div>`;
+
+  const live=`<div class="legend" style="margin-top:14px">
+     <span><b>Live state:</b></span>
+     <span>POP request: ${f.popRaised?'<span class="tag live">raised</span>':'<span class="tag draft">none</span>'}</span>
+     <span>POP code: ${f.popCode?'<span class="tag live">'+f.popCode+'</span>':'<span class="tag draft">pending</span>'}</span>
+     <span>On/Off-Net: ${f.popStage3Done?'<span class="tag live">unlocked</span>':'<span class="tag warn">waiting</span>'}</span>
   </div>`;
+
+  return `<p class="muted" style="margin:0 0 12px">How a request flows and maps across the modules. Solid grey = main flow · <span style="color:#b45309">dashed orange</span> = feedback loop · <span style="color:#2563eb">dashed blue</span> = registry link. Numbers match the explanations below.</p>`
+    + svg + legend + live;
 }
 
 function renderGaps(){
