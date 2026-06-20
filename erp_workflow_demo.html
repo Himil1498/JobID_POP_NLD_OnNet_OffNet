@@ -151,6 +151,7 @@
   .dconn .dline{position:absolute;top:0;bottom:0;left:50%;width:2px;background:#94a3b8;transform:translateX(-50%)}
   .dconn .dtip{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #94a3b8}
   .dconn .dlbl{position:relative;background:#fff;border:1px solid var(--line);border-radius:20px;font-size:10px;color:#475569;padding:1px 9px;text-align:center}
+  .sbt{font:600 10px 'Segoe UI',system-ui,sans-serif;fill:#1f2733}
   .toast{position:fixed;bottom:22px;right:22px;background:#0f172a;color:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;max-width:340px;z-index:50;opacity:0;transform:translateY(10px);transition:.25s}
   .toast.show{opacity:1;transform:none}
   .pillrow{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 16px}
@@ -1247,7 +1248,112 @@ contract:{ title:'POP Contract', sub:'Sub-contracts on a POP Code · Line ID · 
   ]
 },
 
-/* ---------------- 8. L2POI ---------------- */
+/* ---------------- 8. ACTIVE POP ---------------- */
+active:{ title:'Active POP', sub:'Live view of an activated POP — full record', icon:'✅',
+  stages:[
+   {id:'gen', title:'General Information', desc:'Identity · location · BTS',
+    fields:(v)=>{
+      let F=[
+        {type:'text',key:'popId',label:'POP ID',ph:'POP-2026-00118'},
+        {type:'radio',key:'popType',label:'POP Type',options:['Infra Provider','Manageable'],colspan:true},
+        {type:'text',key:'popName',label:'POP Name'},
+        {type:'text',key:'siteId',label:'Site ID'},
+      ];
+      const infra=v.popType==='Infra Provider';
+      if(infra){ F.push({type:'text',key:'infraProv',label:'Infra Provider'}); F.push({type:'text',key:'refNo',label:'Reference Number'}); }
+      F.push({type:'text',key:'region',label:'Region'});F.push({type:'text',key:'tgroup',label:'Tenant group'});
+      F.push({type:'text',key:'tenant',label:'Tenant'});F.push({type:'text',key:'country',label:'Country'});
+      F.push({type:'text',key:'state',label:'State'});F.push({type:'text',key:'district',label:'District'});
+      F.push({type:'text',key:'city',label:'City/Village'});F.push({type:'text',key:'area',label:'Area'});
+      F.push({type:'text',key:'lat',label:'Lat'});F.push({type:'text',key:'long',label:'Long'});
+      F.push({type:'radio',key:'bts',label:'BTS Type',options:['GBT','RTT'],colspan:true});
+      if(v.bts==='GBT') F.push({type:'num',key:'gbtH',label:'GBT Tower Height (mtr)'});
+      if(v.bts==='RTT'){F.push({type:'num',key:'rttTH',label:'RTT Tower Height (mtr)'});F.push({type:'num',key:'rttBH',label:'RTT Building Height (mtr)'});}
+      F.push({type:'num',key:'ubr',label:'UBR Mounting Permission'});F.push({type:'text',key:'rackSpace',label:'Rack Space'});
+      if(v.popType==='Manageable') F.push({type:'info',label:'Manageable: shows all of the above except Reference Number.',read:true,colspan:true});
+      return F;
+    }},
+   {id:'site', title:'Site Information', desc:'Rack & power basics',
+    fields:()=>[
+      {type:'radio',key:'rackType',label:'Rack type',options:['Indoor','Outdoor']},
+      {type:'radio',key:'ac',label:'AC availability',options:['Yes','No']},
+      {type:'radio',key:'pwr',label:'Power source',options:['AC','DC']},
+      {type:'radio',key:'phase',label:'Phase',options:['Single','Three']},
+      {type:'text',key:'pprov',label:'Power provider'},
+    ]},
+   {id:'contact', title:'Contact Information', desc:'Conditional on management type',
+    fields:(v)=>{
+      let F=[{type:'radio',key:'mtype',label:'Management type',options:['Managed','Infra CoLo','Building/Landlord'],colspan:true}];
+      if(v.mtype==='Managed'){
+        F.push({type:'text',key:'rackSpace',label:'Rack Space'});F.push({type:'num',key:'ubr',label:'UBR Mounting Permission'});
+        F.push({type:'text',key:'techN',label:'Technician Name'});F.push({type:'text',key:'techNo',label:'Technician Number'});
+      }
+      if(v.mtype==='Infra CoLo'){
+        F.push({type:'text',key:'refNo',label:'Reference Number'});F.push({type:'text',key:'rackSpace',label:'Rack Space'});F.push({type:'num',key:'ubr',label:'UBR Mounting Permission'});
+        F.push({type:'text',key:'techN',label:'Technician Name'});F.push({type:'text',key:'techNo',label:'Technician Number'});
+        F.push({type:'text',key:'supN',label:'Supervisor Name'});F.push({type:'text',key:'supNo',label:'Supervisor Number'});
+      }
+      if(v.mtype==='Building/Landlord'){
+        F.push({type:'text',key:'spocN',label:'Local SPOC Name'});F.push({type:'text',key:'spocNo',label:'Local SPOC Number'});
+        F.push({type:'text',key:'chairN',label:'Chairman/Landlord Name'});F.push({type:'text',key:'chairNo',label:'Chairman/Landlord Number'});
+      }
+      return F;
+    }},
+   {id:'billing', title:'Billing Information', desc:'PO & commercials',
+    fields:()=>[
+      {type:'text',key:'poNo',label:'PO Number'},{type:'file',key:'poAtt',label:'PO Attachment'},
+      {type:'text',key:'arc',label:'ARC'},{type:'text',key:'otc',label:'OTC'},{type:'select',key:'payCycle',label:'Payment Cycle',options:['Monthly','Quarterly','Annual']},
+    ]},
+   {id:'access', title:'POP Responsibility & Access', desc:'Acceptance & assignments',
+    fields:()=>[
+      {type:'date',key:'accDate',label:'POP acceptance date'},
+      {type:'text',key:'bm',label:'Assigned Branch Manager'},
+      {type:'text',key:'fe',label:'Assigned Field Engineer'},
+      {type:'textarea',key:'access',label:'Access Permission',colspan:true},
+    ]},
+   {id:'backhaul', title:'Connected NLD/Backhaul', desc:'Linked backhauls',
+    fields:()=>[{type:'custom',key:'tbl',render:activeBackhaulTable,colspan:true}]},
+   {id:'inventory', title:'Inventory', desc:'Active & passive devices',
+    fields:(v)=>{
+      let F=[{type:'custom',key:'atbl',render:activeInvTable,colspan:true},
+             {type:'radio',key:'devType',label:'Device detail',options:['Router','Switch'],colspan:true}];
+      if(v.devType==='Switch'){F.push({type:'text',key:'ip',label:'IP address'});F.push({type:'text',key:'mvlan',label:'Management VLAN'});}
+      if(v.devType==='Router'){F.push({type:'text',key:'ip',label:'IP address'});F.push({type:'text',key:'loop',label:'Loopback'});F.push({type:'text',key:'wan',label:'WAN IP'});F.push({type:'text',key:'lan',label:'LAN IP'});F.push({type:'text',key:'mvlan',label:'Management VLAN'});}
+      F.push({type:'custom',key:'ptbl',render:passiveInvTable,colspan:true});
+      return F;
+    }},
+   {id:'rack', title:'Rack & Power Feeds (NetBox)', desc:'Physical infra',
+    fields:()=>[
+      {type:'info',label:'<b>Rack</b>',read:true,colspan:true},
+      {type:'text',key:'rackTypeN',label:'Rack Type'},{type:'text',key:'rackRole',label:'Rack Role'},
+      {type:'text',key:'serial',label:'Serial Number'},{type:'text',key:'asset',label:'Asset Tag'},
+      {type:'text',key:'spaceUtil',label:'Space Utilization'},{type:'text',key:'dimType',label:'Dimensions — Type'},
+      {type:'text',key:'dimW',label:'Width'},{type:'text',key:'dimH',label:'Height'},
+      {type:'info',label:'<b>Power Feeds</b>',read:true,colspan:true},
+      {type:'text',key:'pfType',label:'Type'},{type:'text',key:'pfStatus',label:'Status'},{type:'select',key:'pfSupply',label:'Supply',options:['AC','DC']},
+      {type:'text',key:'pfVolt',label:'Voltage'},{type:'text',key:'pfAmp',label:'Amperage'},{type:'radio',key:'pfPhase',label:'Phase',options:['Single','Three']},
+      {type:'num',key:'pfMax',label:'Max Utilization (%)'},
+    ]},
+   {id:'contract', title:'POP Contract', desc:'Line ID & commercials',
+    fields:(v)=>[
+      {type:'radio',key:'cocat',label:'POP is',options:['Co-Location','Agreement']},
+      {type:'info',label:'<b>Line ID:</b> <span style="font-family:ui-monospace,Consolas,monospace">'+(v.cocat==='Agreement'?'POP-YYYY-seq5-OWN-RCK-&lt;U&gt;':'POP-YYYY-seq5-&lt;infra4&gt;-RCK-&lt;U&gt;')+'</span>',read:true,colspan:true},
+      {type:'text',key:'popCode',label:'POP Code'},{type:'text',key:'addr',label:'Address'},
+      {type:'text',key:'lat',label:'Lat'},{type:'text',key:'long',label:'Long'},
+      {type:'text',key:'arc',label:'ARC'},{type:'text',key:'otc',label:'OTC'},{type:'select',key:'bcycle',label:'Billing Cycle',options:['Monthly','Quarterly','Annual']},
+    ]},
+   {id:'ops', title:'Incident · Change · Invoices · Updates · Attachments', desc:'Operational records',
+    fields:()=>[
+      {type:'info',label:'<b>Incident Management</b> — incident-related details & records.',read:true,colspan:true},
+      {type:'info',label:'<b>Change Management</b> — change request & modification tracking.',read:true,colspan:true},
+      {type:'info',label:'<b>Invoices</b> — invoice records & billing documents.',read:true,colspan:true},
+      {type:'info',label:'<b>Updates</b> — timeline updates & activity logs.',read:true,colspan:true},
+      {type:'file',key:'att',label:'Attachments',multi:true,colspan:true},
+    ]},
+  ]
+},
+
+/* ---------------- 9. L2POI ---------------- */
 l2poi:{ title:'L1/L2POI', sub:'Layer-1 and Layer-2 Interconnect registry', icon:'🧩',
   stages:[
    {id:'s1', title:'L2POI List', desc:'Registered L2 Points of Interconnect',
@@ -1628,6 +1734,24 @@ function submitContract(){
   toast('Contract submitted — PO generated in ZOHO Books · '+contractLineId(v));
   rerender();
 }
+/* ---------- Active POP tables ---------- */
+function activeBackhaulTable(){
+  return `<div class="f full"><label>Connected NLD / Backhaul</label><table class="tbl"><thead><tr><th>Backhaul ID</th><th>Backhaul Name</th><th>Backhaul Type</th><th>Bandwidth</th></tr></thead><tbody>
+   <tr><td>NLD-0007</td><td>AMD ↔ MUM</td><td>NLD / P2P</td><td>1 Gbps</td></tr>
+   <tr><td>ONN-0012</td><td>SG-Hwy ↔ Bopal</td><td>On Net</td><td>500 Mbps</td></tr>
+  </tbody></table></div>`;
+}
+function activeInvTable(){
+  return `<div class="f full"><label>Active Inventory</label><table class="tbl"><thead><tr><th>Mat Code</th><th>Device Type</th><th>Device Name</th><th>Brand</th><th>Model</th><th>Sub Category</th><th>IP Address</th></tr></thead><tbody>
+   <tr><td>MAT-1001</td><td>Router</td><td>RTR-A1</td><td>Cisco</td><td>ISR4331</td><td>Edge</td><td>10.0.0.1</td></tr>
+   <tr><td>MAT-1002</td><td>Switch</td><td>SW-A1</td><td>Juniper</td><td>EX2300</td><td>Access</td><td>10.0.0.2</td></tr>
+  </tbody></table></div>`;
+}
+function passiveInvTable(){
+  return `<div class="f full"><label>Passive Inventory</label><table class="tbl"><thead><tr><th>Mat Code</th><th>Device Type</th><th>Device Name</th><th>Brand</th><th>Model</th><th>Sub Category</th></tr></thead><tbody>
+   <tr><td>MAT-2001</td><td>ODF</td><td>ODF-24</td><td>—</td><td>24F</td><td>Passive</td></tr>
+  </tbody></table></div>`;
+}
 function dataFlow(steps){
   return '<div class="dflow">'+steps.map((s,i)=>{
     let h=`<div class="dstep ${s.key?'key':''}"><div class="dt">${s.t}</div>${s.s?`<div class="ds">${s.s}</div>`:''}${s.branch?`<div class="dbranch">⤳ ${s.branch}</div>`:''}</div>`;
@@ -1636,44 +1760,52 @@ function dataFlow(steps){
   }).join('')+'</div>';
 }
 function renderMasterFlow(){
-  const N=(x,y,w,h,t,sub,cls)=>`<g><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="9" class="fxnode ${cls||''}"/><text x="${x+w/2}" y="${y+(sub?h/2-3:h/2+5)}" class="fxtitle">${t}</text>${sub?`<text x="${x+w/2}" y="${y+h/2+13}" class="fxsub">${sub}</text>`:''}</g>`;
-  const T=(x,y,t,a)=>`<text x="${x}" y="${y}" class="fxsub" text-anchor="${a||'middle'}">${t}</text>`;
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const trunc=(s,n)=>{s=String(s);return s.length>n?s.slice(0,n-1)+'…':s;};
   const E=(d,cls)=>`<path d="${d}" fill="none" class="fxedge ${cls||''}" ${/fb|reg/.test(cls||'')?'stroke-dasharray="6 5"':''} marker-end="url(#mfarr)"/>`;
+  const T=(x,y,t,a)=>`<text x="${x}" y="${y}" class="fxsub" text-anchor="${a||'middle'}">${t}</text>`;
+  const cx=380,cw=215, mx=cx+cw/2;
+  const spine=(y,t,sub,cls)=>`<g><rect x="${cx}" y="${y}" width="${cw}" height="42" rx="8" class="fxnode ${cls||''}"/><text x="${mx}" y="${y+(sub?17:25)}" class="fxtitle">${t}</text>${sub?`<text x="${mx}" y="${y+31}" class="fxsub">${sub}</text>`:''}</g>`;
+  const sbox=(x,y,w,t)=>`<g><rect x="${x}" y="${y}" width="${w}" height="24" rx="6" class="fxnode"/><text x="${x+9}" y="${y+16}" class="sbt">${esc(trunc(t,30))}</text></g>`;
+  // a lane = full vertical stage chain of a module
+  function lane(mod,x,w,y0){
+    const M=MODULES[mod]; let s='',y=y0;
+    M.stages.forEach((st,i)=>{ s+=sbox(x,y,w,st.title); if(i<M.stages.length-1) s+=E(`M${x+w/2},${y+24} V${y+30}`); y+=30; });
+    return {svg:s, headY:y0+12, midY:y0+Math.floor(M.stages.length/2)*30+12, bottom:y-6};
+  }
+  const lxc=20,lwc=220, rxc=760,rwc=210;
+  const nld=lane('nld',lxc,lwc,120);
+  const onn=lane('onnet',rxc,rwc,232);
+  const off=lane('offp2p',rxc,rwc, onn.bottom+44);
   const pc=S.flags.popCode||'POP-YYYY-seq5';
-  return `<div class="fxwrap"><svg class="fxsvg" viewBox="0 0 940 700" role="img" aria-label="End-to-end stage flow">
-   <defs><marker id="mfarr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#94a3b8"/></marker></defs>
-   ${E('M470,68 V110')}${E('M470,154 V196')}${E('M470,240 V282')}${E('M470,326 V368')}${E('M470,412 V454')}${E('M470,498 V540')}${E('M470,584 V626')}
-   ${E('M360,132 H250')}
-   ${E('M160,154 V220','reg')}
-   ${E('M250,132 H300 V390 H360','fb')}
-   ${E('M580,304 H700')}
-   ${E('M580,304 H640 V381 H700')}
-   ${E('M580,648 H700')}
-   ${E('M790,626 V562 H580','fb')}
-   ${T(305,126,'Backhaul = NLD')}
-   ${T(196,188,'New L2/L1','start')}
-   ${T(308,300,'child POP · Install → S4','start')}
-   ${T(640,298,'after POP code')}
-   ${T(655,345,'after POP code','start')}
-   ${T(640,642,'Line ID + PO')}
-   ${T(795,596,'stored in Active','start')}
-   ${N(360,24,220,44,'Job ID List','entry · decision','entry')}
-   ${N(360,110,220,44,'POP Feasibility','Stage 1 · backhaul type','hub')}
-   ${N(360,196,220,44,'Survey → Juggle','Stage 2','hub')}
-   ${N(360,282,220,44,'POP Code','Stage 3 · '+pc,'reg')}
-   ${N(360,368,220,44,'PO / Agreement','Stage 4–5','hub')}
-   ${N(360,454,220,44,'PR pipeline','Rack→Device→Cables→Prov.','term')}
-   ${N(360,540,220,44,'Active POP','provisioned','entry')}
-   ${N(360,626,220,44,'POP Contract','add-on / new / renew')}
-   ${N(70,110,180,44,'NLD / Backhaul','Stage 1–8')}
-   ${N(70,220,180,40,'L1/L2POI','registry','reg')}
-   ${N(700,282,200,42,'On Net Backhaul')}
-   ${N(700,360,200,42,'Off Net POP↔POP')}
-   ${N(700,626,180,44,'PO · ZOHO Books','→ Active POP','reg')}
-  </svg></div>`;
+  const SP={job:50,feas:120,code:230,po:340,active:470,contract:560};
+  const H=Math.max(off.bottom, SP.contract+60)+24;
+  let svg=`<div class="fxwrap"><svg class="fxsvg" viewBox="0 0 990 ${H}" role="img" aria-label="End-to-end flow with complete NLD / On Net / Off Net stages">
+   <defs><marker id="mfarr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#94a3b8"/></marker></defs>`;
+  // spine connectors
+  svg+=E(`M${mx},92 V120`)+E(`M${mx},162 V230`)+E(`M${mx},272 V340`)+E(`M${mx},382 V470`)+E(`M${mx},512 V560`);
+  // POP → lanes
+  svg+=E(`M${cx},141 H240`)+T(310,135,'Backhaul = NLD');
+  svg+=E(`M${cx+cw},251 H${rxc}`)+T(682,245,'after POP code');
+  svg+=E(`M${cx+cw},251 H704 V${off.headY} H${rxc}`)+T(706,off.headY-7,'after POP code','start');
+  // NLD feedback → PO/Agreement
+  svg+=E(`M240,${nld.midY} H300 V361 H${cx}`,'fb')+T(305,nld.midY-6,'Install / child → S4','start');
+  // lane header labels
+  svg+=T(lxc+lwc/2,112,'NLD — complete stages')+T(rxc+rwc/2,224,'On Net — complete stages')+T(rxc+rwc/2,off.headY-16,'Off Net (POP↔POP) — complete stages');
+  // lanes
+  svg+=nld.svg+onn.svg+off.svg;
+  // spine nodes
+  svg+=spine(SP.job,'Job ID List','entry','entry')
+     + spine(SP.feas,'POP Feasibility','Stage 1 · backhaul','hub')
+     + spine(SP.code,'POP Code','Stage 3 · '+pc,'reg')
+     + spine(SP.po,'PO / Agreement','Stage 4–5','hub')
+     + spine(SP.active,'Active POP','provisioned','entry')
+     + spine(SP.contract,'POP Contract','Line ID → ZOHO PO');
+  svg+='</svg></div>';
+  return svg;
 }
 function renderWorkflow(){
-  const order=['jobid','pop','nld','onnet','offcust','offp2p','contract','l2poi'];
+  const order=['jobid','pop','nld','onnet','offcust','offp2p','contract','active','l2poi'];
   const intro={
     jobid:'Entry point. Picks last-mile type and decides whether a POP / Off-Net / Dark-Fiber request is raised.',
     pop:'The hub — created when a POP is unavailable. Stage 3 generates the POP code (unlocks On Net / Off Net). Runs the full PR pipeline through to Active.',
@@ -1682,6 +1814,7 @@ function renderWorkflow(){
     offcust:'From Job ID List Off-Net jobs — Dark Fiber or Broadband. Vendor collection → selection → service credentials.',
     offp2p:'POP-to-POP Off-Net backhaul. Initiates after POP Stage 3. Vendor collection → distances → acceptance.',
     contract:'Commercial step — sub-contracts hang off a POP Code. Add-on / New / Renew, each carrying a Line ID and generating a PO in ZOHO Books.',
+    active:'The live POP record after activation — General info, Site, Contact, Billing, Access, Connected backhauls, Inventory (active/passive), Rack & Power (NetBox), POP Contract, and Incident/Change/Invoices/Updates/Attachments.',
     l2poi:'Registry of Layer-1 / Layer-2 interconnects, referenced by NLD / On Net New L2/L1 ends.'
   };
   const triggers={
@@ -1756,7 +1889,7 @@ function renderWorkflow(){
     <div class="dcol"><h4>🧾 POP Contract — data flow</h4>${dataFlow(contractSteps)}</div>
   </div>`;
 
-  let html='<p class="muted" style="margin:0 0 12px">End-to-end stage flow with interconnecting lines (Visio-style). Center = the POP spine; left = NLD &amp; L1/L2POI; right = On/Off-Net backhaul and the POP Contract → ZOHO PO loop. <span style="color:#b45309">dashed orange</span> = feedback, <span style="color:#2563eb">dashed</span> = registry/PO link.</p>'+renderMasterFlow();
+  let html='<p class="muted" style="margin:0 0 12px">End-to-end flow with interconnecting lines (Visio-style). Center = POP spine; left lane = <b>complete NLD stages</b>; right lanes = <b>complete On Net &amp; Off Net stages</b>, branching off the POP Code. <span style="color:#b45309">dashed orange</span> = NLD feedback to POP Stage 4.</p>'+renderMasterFlow();
   html+='<h3 style="margin:24px 0 10px;font-size:15px">Per-module data flow</h3>'+diagrams;
   html+='<h3 style="margin:24px 0 10px;font-size:15px">All modules — stage details</h3>';
   order.forEach((mod,mi)=>{
